@@ -1,13 +1,20 @@
-# DNS migration runbook — GoDaddy → Cloudflare (for `admin.onchainsuite.com` Access)
+# Migration runbook — leave GoDaddy, consolidate on Cloudflare
 
-**Goal:** put the `onchainsuite.com` DNS zone on Cloudflare so Zero Trust Access
-can gate `admin.onchainsuite.com`, **without touching email deliverability**.
+**Goal:** move `onchainsuite.com` entirely off GoDaddy and onto Cloudflare (DNS +
+registrar + Zero Trust Access), **without touching email deliverability**.
 
-**What changes:** only the domain's **nameservers** (GoDaddy → Cloudflare).
-GoDaddy stays the **registrar** (renewals, ownership unchanged). Cloudflare
-becomes the authoritative DNS host. The **only** record that gets proxied
-(orange cloud) is `admin.onchainsuite.com`; **every mail record stays "DNS only"
-(grey cloud).**
+**Two stages, in order:**
+
+- **Stage A — DNS to Cloudflare (Phases 1–6).** The delivery-sensitive part.
+  Move nameservers; every mail record must be replicated and kept **grey cloud**.
+- **Stage B — registrar to Cloudflare (Phase 7).** Done *after* Stage A is live.
+  This is **deliverability-safe**: nameservers and records already point at
+  Cloudflare, so the registrar change is invisible to mail and web.
+
+**What changes:** first the **nameservers** (GoDaddy → Cloudflare), then the
+**registration** (GoDaddy → Cloudflare Registrar). End state: **no GoDaddy at
+all.** The **only** record that gets proxied (orange cloud) is
+`admin.onchainsuite.com`; **every mail record stays "DNS only" (grey cloud).**
 
 **Why it's safe:** email routing is just DNS records (MX / SPF / DKIM / DMARC +
 the sending-domain CNAMEs). Cloudflare serves them exactly like GoDaddy did and
@@ -91,11 +98,52 @@ never touches SMTP — it only proxies HTTP for orange-clouded records.
 - [ ] `admin.onchainsuite.com` → Cloudflare Access login (GitHub) → app loads.
 - [ ] The raw `*.vercel.app` URL returns **403** (gate working).
 
-## Rollback
+## Rollback (Stage A)
 
 - [ ] If anything breaks, revert nameservers at GoDaddy to the originals.
       GoDaddy's zone still exists, so resolution returns to the old records
       within the TTL window. Fix the Cloudflare zone, then retry.
+
+---
+
+## Phase 7 — Stage B: transfer the registration to Cloudflare Registrar
+
+Do this **only after Stage A is fully verified** (Phase 6 green). A registrar
+transfer does **not** change nameservers or DNS records — those already live at
+Cloudflare — so **mail and web keep working throughout.** Cloudflare Registrar
+sells at wholesale cost (no markup) and puts registrar + DNS + Access in one
+dashboard.
+
+**Prerequisites (check first — a transfer can be blocked):**
+- [ ] The domain is **> 60 days** since registration and since any prior
+      transfer (ICANN lock — you must wait it out otherwise).
+- [ ] The domain isn't within a few days of expiry (renew first if it is).
+- [ ] Registrant/admin contact email at GoDaddy is current (the approval email
+      goes there).
+
+**At GoDaddy:**
+- [ ] Domain settings → **turn off the domain (transfer) lock**.
+- [ ] **Disable DNSSEC** if still on (avoids a broken DS record at the new
+      registrar) — re-enable from Cloudflare afterward.
+- [ ] Copy the **EPP / authorization code** ("transfer authorization code").
+
+**At Cloudflare:**
+- [ ] Registrar → **Transfer Domains** → select `onchainsuite.com`.
+- [ ] Confirm contact info, paste the **auth code**, and pay. The transfer
+      **adds 1 year** to the registration (ICANN rule) — you don't lose the time
+      you already have; it stacks on top.
+- [ ] Approve the transfer from the confirmation email (this can speed up what
+      is otherwise a ~5-day ICANN window).
+
+**After transfer:**
+- [ ] Cloudflare shows the domain as registered there; GoDaddy no longer lists
+      it. **GoDaddy is now fully out.**
+- [ ] Re-run Phase 6 verification once more (should be unchanged).
+
+> Prefer a different registrar? Porkbun or Namecheap are also low-stress and can
+> hold the registration while DNS stays on Cloudflare. Cloudflare Registrar just
+> keeps everything in one place. Either way, **do Stage A first** — Cloudflare
+> Registrar requires the zone to already be active on Cloudflare.
 
 ---
 
