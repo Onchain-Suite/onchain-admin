@@ -1,0 +1,173 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * OnchainSuite Design System v2 — shared with the main app (src/styles/globals.css).
+ * Keep these tokens in sync so the admin console reads as the same product.
+ */
+:root {
+  /* v2 (light): near-white page, white surfaces, slate neutrals, Oxford-blue
+     ink. Blue #1727E0 is the working color; orange #FF6828 is the focus ring. */
+  --background: #fbfbfc;
+  --foreground: #010f31;
+  --card: #ffffff;
+  --card-foreground: #010f31;
+  --popover: #ffffff;
+  --popover-foreground: #010f31;
+  --primary: #1727e0;
+  --primary-foreground: #ffffff;
+  --secondary: #2f94ff;
+  --secondary-foreground: #010f31;
+  --muted: #f4f5f6;
+  --muted-foreground: #585d65;
+  --accent: #f0f7ff;
+  --accent-foreground: #1727e0;
+  --destructive: #e5484d;
+  --destructive-foreground: #ffffff;
+  --success: #30a46c;
+  --warning: #ffb224;
+  --border: #dee0e3;
+  --input: #dee0e3;
+  --ring: #ff6828;
+  --chart-1: #1727e0;
+  --chart-2: #2f94ff;
+  --chart-3: #ff6828;
+  --chart-4: #7a8efb;
+  --chart-5: #a3b4ff;
+  --font-sans: var(--font-instrument-sans), "Instrument Sans", sans-serif;
+  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", monospace;
+  --radius: 0.625rem;
+  --shadow-sm:
+    0rem 0.25rem 0.5rem 0.125rem hsl(222.5 96% 9.8% / 0.1),
+    0rem 1px 2px -0.875px hsl(222.5 96% 9.8% / 0.1);
+  --shadow:
+    0rem 0.25rem 0.5rem 0.125rem hsl(222.5 96% 9.8% / 0.1),
+    0rem 1px 2px -0.875px hsl(222.5 96% 9.8% / 0.1);
+  --shadow-md:
+    0rem 0.25rem 0.5rem 0.125rem hsl(222.5 96% 9.8% / 0.1),
+    0rem 2px 4px -0.875px hsl(222.5 96% 9.8% / 0.1);
+  --shadow-lg:
+    0rem 0.25rem 0.5rem 0.125rem hsl(222.5 96% 9.8% / 0.1),
+    0rem 4px 6px -0.875px hsl(222.5 96% 9.8% / 0.1);
+
+  /* Brand palette */
+  --brand-oxford-blue: #010f31;
+  --brand-alice-blue: #f0f7ff;
+  --brand-blue: #1727e0;
+  --brand-dodger-blue: #2f94ff;
+  --brand-orange: #ff6828;
+}
+
+.dark {
+  /* v2 (dark): neutral graphite — never a blue background. Blue lifts to
+     #5468F2 and stays an accent; orange lifts to #FF8449 for focus rings. */
+  --background: #101215;
+  --foreground: #fbfbfc;
+  --card: #17191d;
+  --card-foreground: #fbfbfc;
+  --popover: #17191d;
+  --popover-foreground: #fbfbfc;
+  --primary: #5468f2;
+  --primary-foreground: #ffffff;
+  --secondary: #2b2f35;
+  --secondary-foreground: #fbfbfc;
+  --muted: #17191d;
+  --muted-foreground: #9da1a8;
+  --accent: #2b2f35;
+  --accent-foreground: #fbfbfc;
+  --destructive: #e5484d;
+  --destructive-foreground: #ffffff;
+  --success: #3dd68c;
+  --warning: #ffca62;
+  --border: #2b2f35;
+  --input: #2b2f35;
+  --ring: #ff8449;
+  --chart-1: #5468f2;
+  --chart-2: #2f94ff;
+  --chart-3: #ff8449;
+  --chart-4: #7a8efb;
+  --chart-5: #a3b4ff;
+  --shadow-sm:
+    0rem 0.25rem 0.5rem 0.125rem hsl(222 48% 10% / 0.32),
+    0rem 1px 2px -0.875px hsl(222 48% 10% / 0.24);
+  --shadow:
+    0rem 0.25rem 0.5rem 0.125rem hsl(222 48% 10% / 0.32),
+    0rem 1px 2px -0.875px hsl(222 48% 10% / 0.24);
+  --shadow-md:
+    0rem 0.25rem 0.5rem 0.125rem hsl(222 48% 10% / 0.32),
+    0rem 2px 4px -0.875px hsl(222 48% 10% / 0.24);
+  --shadow-lg:
+    0rem 0.25rem 0.5rem 0.125rem hsl(222 48% 10% / 0.32),
+    0rem 4px 6px -0.875px hsl(222 48% 10% / 0.24);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Sleek, thin, themed scrollbar — derives from --primary / --border so it
+   works in both light and dark. Matches the main app. */
+.scrollbar-sleek {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--primary) 45%, transparent)
+    transparent;
+}
+.scrollbar-sleek::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-sleek::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-sleek::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--primary) 38%, transparent);
+  transition: background 0.2s ease;
+}
+.scrollbar-sleek:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, var(--primary) 62%, transparent);
+}
