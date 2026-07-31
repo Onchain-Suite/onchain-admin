@@ -56,18 +56,37 @@ There is no Cloudflare Access in front of `localhost`, so
 `ADMIN_DEV_BYPASS_AUTH=1` (dev only, ignored in production) bypasses the JWT
 gate. Never set it in a deployed environment.
 
-## 4. Deploy
+## 4. Deploy (Vercel)
 
-Deploy anywhere that runs a Next.js Node server (or Cloudflare Workers via
-OpenNext). The one hard requirement: `admin.onchainsuite.com` must be a
-**Cloudflare-proxied** record (orange cloud) so the Access policy intercepts it.
-Set the production env vars:
+Hosted on **Vercel** (matches the org's other frontends), fronted by Cloudflare
+Access. CI/CD is wired: every push to `main` deploys.
+
+**Env vars** (Vercel → Project → Settings → Environment Variables, Production):
 
 ```
-CF_ACCESS_TEAM_DOMAIN, CF_ACCESS_AUD, BACKEND_URL, ADMIN_API_TOKEN
-ADMIN_MOCK=0            # once the backend endpoint is live
-# do NOT set ADMIN_DEV_BYPASS_AUTH in production
+CF_ACCESS_TEAM_DOMAIN=<team>.cloudflareaccess.com
+CF_ACCESS_AUD=<admin Access application AUD tag>
+BACKEND_URL=https://<backend>/api/v1
+ADMIN_API_TOKEN=<read-only service token>       # secret
+ADMIN_SUPERADMINS=you@onchainsuite.com,...       # who may mutate
+ADMIN_MOCK=0                                      # once GET /admin/* is live
+# never set ADMIN_DEV_BYPASS_AUTH in production
 ```
+
+**Domain + Access** (the security gate — required):
+
+1. Add `admin.onchainsuite.com` as a domain on the Vercel project.
+2. In Cloudflare DNS, point it at Vercel and keep the record **proxied**
+   (orange cloud) so Cloudflare Access intercepts every request.
+3. Point the Access application (README §1) at that hostname.
+
+Until Access fronts it, the raw `*.vercel.app` URL **returns 403 for every
+request** — the middleware requires a valid Access JWT and there is none
+without Cloudflare in front. That 403 wall is the gate working, not a broken
+deploy.
+
+Alternative host: anywhere that runs a Next.js Node server, or Cloudflare
+Workers via OpenNext. Same env + proxied-hostname requirement.
 
 ## Hardening already wired
 
