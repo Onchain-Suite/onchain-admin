@@ -11,6 +11,7 @@ import {
   mockUsers,
   mockVisitors,
 } from "@/lib/mock";
+import { ENDPOINTS } from "@/lib/endpoints";
 import { buildQuery, type Filters } from "@/lib/filters";
 import type {
   AdminSnapshot,
@@ -90,25 +91,25 @@ async function read<T>(path: string, fallback: () => T): Promise<Read<T>> {
  */
 export const adminApi = {
   snapshot: (f: Filters) =>
-    read<AdminSnapshot>(`/admin/snapshot${buildQuery(f, ["range"])}`, () => mockSnapshot(f)),
+    read<AdminSnapshot>(`${ENDPOINTS.snapshot.build()}${buildQuery(f, ["range"])}`, () => mockSnapshot(f)),
   status: (f: Filters) =>
-    read<StatusBoard>(`/admin/status${buildQuery(f, ["level"])}`, () => mockStatus(f)),
+    read<StatusBoard>(`${ENDPOINTS.status.build()}${buildQuery(f, ["level"])}`, () => mockStatus(f)),
   analytics: (f: Filters) =>
-    read<AnalyticsOverview>(`/admin/analytics/overview${buildQuery(f, ["range"])}`, () => mockAnalytics(f)),
+    read<AnalyticsOverview>(`${ENDPOINTS.analytics.build()}${buildQuery(f, ["range"])}`, () => mockAnalytics(f)),
   orgs: (f: Filters) =>
-    read<OrgSummary[]>(`/admin/orgs${buildQuery(f, ["plan", "health"])}`, () => mockOrgs(f)),
+    read<OrgSummary[]>(`${ENDPOINTS.orgs.build()}${buildQuery(f, ["plan", "health"])}`, () => mockOrgs(f)),
   org: (id: string) =>
-    read<OrgDetail>(`/admin/orgs/${id}`, () => mockOrgDetail(id)),
+    read<OrgDetail>(ENDPOINTS.org.build(id), () => mockOrgDetail(id)),
   users: (f: Filters) =>
-    read<UserRow[]>(`/admin/users${buildQuery(f, ["verified"])}`, () => mockUsers(f)),
+    read<UserRow[]>(`${ENDPOINTS.users.build()}${buildQuery(f, ["verified"])}`, () => mockUsers(f)),
   billing: (f: Filters) =>
-    read<BillingOps>(`/admin/billing${buildQuery(f, ["range"])}`, () => mockBilling(f)),
+    read<BillingOps>(`${ENDPOINTS.billing.build()}${buildQuery(f, ["range"])}`, () => mockBilling(f)),
   deliverability: (f: Filters) =>
     read<DeliverabilityBoard>(
-      `/admin/email/providers/health${buildQuery(f, ["provider", "reputation", "range"])}`,
+      `${ENDPOINTS.providerHealth.build()}${buildQuery(f, ["provider", "reputation", "range"])}`,
       () => mockDeliverability(f)
     ),
   visitors: (f: Filters) =>
-    read<VisitorAnalytics>(`/admin/analytics/visitors${buildQuery(f, ["range"])}`, () => mockVisitors(f)),
-  audit: () => read<AuditEntry[]>("/admin/audit", mockAudit),
+    read<VisitorAnalytics>(`${ENDPOINTS.visitors.build()}${buildQuery(f, ["range"])}`, () => mockVisitors(f)),
+  audit: () => read<AuditEntry[]>(ENDPOINTS.audit.build(), mockAudit),
 };

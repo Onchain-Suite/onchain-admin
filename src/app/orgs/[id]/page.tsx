@@ -6,7 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HealthPill } from "@/components/ui/health-pill";
 import { Meter } from "@/components/ui/meter";
 import { MockBanner } from "@/components/mock-banner";
+import { OrgActions } from "@/components/org-actions";
 import { adminApi } from "@/lib/admin-api";
+import { getIdentity } from "@/lib/identity";
 import { cn, formatCompact, formatMoney, timeAgo } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +19,10 @@ export default async function OrgDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { data: org, isMock, error } = await adminApi.org(id);
+  const [{ data: org, isMock, error }, identity] = await Promise.all([
+    adminApi.org(id),
+    getIdentity(),
+  ]);
 
   return (
     <>
@@ -145,6 +150,17 @@ export default async function OrgDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      {identity.superAdmin ? (
+        <div className="mt-6">
+          <OrgActions orgId={org.id} domains={org.domains.map((d) => d.domain)} />
+        </div>
+      ) : (
+        <p className="mt-6 text-xs text-muted-foreground">
+          Mutating actions (domain re-sync, wallet credit, plan changes) require
+          the SUPER_ADMIN role.
+        </p>
+      )}
     </>
   );
 }

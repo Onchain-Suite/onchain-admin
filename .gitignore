@@ -10,5 +10,8 @@ next-env.d.ts
 .env.local
 .env*.local
 
+# internal planning docs — kept local, not tracked
+notes/
+
 .DS_Store
 *.log

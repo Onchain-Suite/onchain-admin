@@ -70,6 +70,19 @@ export function isAllowed(email: string): boolean {
   return list.length === 0 || list.includes(email.toLowerCase());
 }
 
+/** Emails permitted to run mutating admin actions (PRD: SUPER_ADMIN only). */
+export function superAdmins(): string[] {
+  return (process.env.ADMIN_SUPERADMINS ?? "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+/** Default-deny: with no ADMIN_SUPERADMINS set, nobody can mutate. */
+export function isSuperAdmin(email: string): boolean {
+  return superAdmins().includes(email.toLowerCase());
+}
+
 /** Dev-only escape hatch so the console runs on localhost, where no Access sits in front. */
 export function devBypassIdentity(): AccessIdentity | null {
   if (
