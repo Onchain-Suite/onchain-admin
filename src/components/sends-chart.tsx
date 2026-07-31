@@ -10,31 +10,39 @@ import {
   YAxis,
 } from "recharts";
 
-import type { SendPoint } from "@/lib/types";
+export interface SeriesDef {
+  key: string;
+  label: string;
+  color: string; // CSS var or hex
+}
 
-/** Email vs in-app send volume over the window. Colors come from v2 chart tokens. */
-export function SendsChart({ data }: { data: SendPoint[] }) {
+/** Generic multi-series area chart. Colors come from v2 chart tokens. */
+export function SeriesChart({
+  data,
+  xKey,
+  series,
+  height = 256,
+}: {
+  data: object[];
+  xKey: string;
+  series: SeriesDef[];
+  height?: number;
+}) {
   return (
-    <ResponsiveContainer width="100%" height={256}>
+    <ResponsiveContainer width="100%" height={height}>
       <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
         <defs>
-          <linearGradient id="fillEmail" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.35} />
-            <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
-          </linearGradient>
-          <linearGradient id="fillPush" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--chart-2)" stopOpacity={0.3} />
-            <stop offset="100%" stopColor="var(--chart-2)" stopOpacity={0} />
-          </linearGradient>
+          {series.map((s) => (
+            <linearGradient key={s.key} id={`fill-${s.key}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={s.color} stopOpacity={0.32} />
+              <stop offset="100%" stopColor={s.color} stopOpacity={0} />
+            </linearGradient>
+          ))}
         </defs>
-        <CartesianGrid
-          strokeDasharray="3 3"
-          stroke="var(--border)"
-          vertical={false}
-        />
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
         <XAxis
-          dataKey="date"
-          tickFormatter={(d: string) => d.slice(5)}
+          dataKey={xKey}
+          tickFormatter={(d: string) => (typeof d === "string" ? d.slice(5) : d)}
           tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
           axisLine={false}
           tickLine={false}
@@ -56,22 +64,17 @@ export function SendsChart({ data }: { data: SendPoint[] }) {
           }}
           labelStyle={{ color: "var(--muted-foreground)" }}
         />
-        <Area
-          type="monotone"
-          dataKey="email"
-          name="Email"
-          stroke="var(--chart-1)"
-          fill="url(#fillEmail)"
-          strokeWidth={2}
-        />
-        <Area
-          type="monotone"
-          dataKey="push"
-          name="In-app"
-          stroke="var(--chart-2)"
-          fill="url(#fillPush)"
-          strokeWidth={2}
-        />
+        {series.map((s) => (
+          <Area
+            key={s.key}
+            type="monotone"
+            dataKey={s.key}
+            name={s.label}
+            stroke={s.color}
+            fill={`url(#fill-${s.key})`}
+            strokeWidth={2}
+          />
+        ))}
       </AreaChart>
     </ResponsiveContainer>
   );
