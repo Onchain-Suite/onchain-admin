@@ -11,6 +11,7 @@ import {
   mockUsers,
   mockVisitors,
 } from "@/lib/mock";
+import { buildQuery, type Filters } from "@/lib/filters";
 import type {
   AdminSnapshot,
   AnalyticsOverview,
@@ -82,20 +83,32 @@ async function read<T>(path: string, fallback: () => T): Promise<Read<T>> {
   }
 }
 
-/* One read per PRD area (notes/prd.md §4). No mutating methods exist. */
+/**
+ * One read per PRD area (notes/prd.md §4). Each takes the active Filters,
+ * forwards the relevant ones as backend query params, and passes them to the
+ * mock so sample data reacts too. No mutating methods exist.
+ */
 export const adminApi = {
-  snapshot: () => read<AdminSnapshot>("/admin/snapshot", mockSnapshot),
-  status: () => read<StatusBoard>("/admin/status", mockStatus),
-  analytics: () =>
-    read<AnalyticsOverview>("/admin/analytics/overview", mockAnalytics),
-  orgs: () => read<OrgSummary[]>("/admin/orgs", mockOrgs),
+  snapshot: (f: Filters) =>
+    read<AdminSnapshot>(`/admin/snapshot${buildQuery(f, ["range"])}`, () => mockSnapshot(f)),
+  status: (f: Filters) =>
+    read<StatusBoard>(`/admin/status${buildQuery(f, ["level"])}`, () => mockStatus(f)),
+  analytics: (f: Filters) =>
+    read<AnalyticsOverview>(`/admin/analytics/overview${buildQuery(f, ["range"])}`, () => mockAnalytics(f)),
+  orgs: (f: Filters) =>
+    read<OrgSummary[]>(`/admin/orgs${buildQuery(f, ["plan", "health"])}`, () => mockOrgs(f)),
   org: (id: string) =>
     read<OrgDetail>(`/admin/orgs/${id}`, () => mockOrgDetail(id)),
-  users: () => read<UserRow[]>("/admin/users", mockUsers),
-  billing: () => read<BillingOps>("/admin/billing", mockBilling),
-  deliverability: () =>
-    read<DeliverabilityBoard>("/admin/email/providers/health", mockDeliverability),
-  visitors: () =>
-    read<VisitorAnalytics>("/admin/analytics/visitors", mockVisitors),
+  users: (f: Filters) =>
+    read<UserRow[]>(`/admin/users${buildQuery(f, ["verified"])}`, () => mockUsers(f)),
+  billing: (f: Filters) =>
+    read<BillingOps>(`/admin/billing${buildQuery(f, ["range"])}`, () => mockBilling(f)),
+  deliverability: (f: Filters) =>
+    read<DeliverabilityBoard>(
+      `/admin/email/providers/health${buildQuery(f, ["provider", "reputation", "range"])}`,
+      () => mockDeliverability(f)
+    ),
+  visitors: (f: Filters) =>
+    read<VisitorAnalytics>(`/admin/analytics/visitors${buildQuery(f, ["range"])}`, () => mockVisitors(f)),
   audit: () => read<AuditEntry[]>("/admin/audit", mockAudit),
 };

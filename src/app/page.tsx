@@ -1,11 +1,13 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartLegend, ChartPanel } from "@/components/chart-panel";
+import { FilterBar } from "@/components/filter-bar";
 import { MockBanner } from "@/components/mock-banner";
 import { NorthStarTile } from "@/components/north-star-tile";
 import { PageHeading, SectionHeading } from "@/components/section-heading";
 import { HealthPill } from "@/components/ui/health-pill";
 import { adminApi } from "@/lib/admin-api";
+import { parseFilters, RANGE_SPEC, rangeLabel, type SearchParams } from "@/lib/filters";
 import { timeAgo } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -15,8 +17,13 @@ const SEND_SERIES = [
   { key: "push", label: "In-app", color: "var(--chart-2)" },
 ];
 
-export default async function OverviewPage() {
-  const { data, isMock, error } = await adminApi.snapshot();
+export default async function OverviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const f = parseFilters(await searchParams);
+  const { data, isMock, error } = await adminApi.snapshot(f);
 
   return (
     <>
@@ -24,6 +31,7 @@ export default async function OverviewPage() {
         title="Overview"
         description="Are we growing, are customers healthy, is the system healthy — at a glance."
       />
+      <FilterBar specs={[RANGE_SPEC]} />
       {isMock ? <MockBanner endpoint="GET /admin/snapshot" error={error} /> : null}
 
       <SectionHeading>North-star metrics</SectionHeading>
@@ -51,7 +59,7 @@ export default async function OverviewPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader className="flex items-center justify-between gap-2">
-            <CardTitle>Send volume · last 14 days</CardTitle>
+            <CardTitle>Send volume · {rangeLabel(f.range)}</CardTitle>
             <ChartLegend series={SEND_SERIES} />
           </CardHeader>
           <CardContent>

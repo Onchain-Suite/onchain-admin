@@ -1,10 +1,12 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
+import { FilterBar } from "@/components/filter-bar";
 import { MockBanner } from "@/components/mock-banner";
 import { PageHeading, SectionHeading } from "@/components/section-heading";
 import { StatCard } from "@/components/stat-card";
 import { adminApi } from "@/lib/admin-api";
+import { parseFilters, RANGE_SPEC, rangeLabel, type SearchParams } from "@/lib/filters";
 import type { BillingOps } from "@/lib/types";
 import { formatMoney, timeAgo } from "@/lib/utils";
 
@@ -13,8 +15,13 @@ export const dynamic = "force-dynamic";
 type Pending = BillingOps["pending"][number];
 type Ledger = BillingOps["ledger"][number];
 
-export default async function BillingPage() {
-  const { data, isMock, error } = await adminApi.billing();
+export default async function BillingPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const f = parseFilters(await searchParams);
+  const { data, isMock, error } = await adminApi.billing(f);
   const { waterfall } = data;
   const netNew =
     waterfall.newMrr + waterfall.expansion + waterfall.contraction + waterfall.churn;
@@ -25,9 +32,10 @@ export default async function BillingPage() {
         title="Billing operations"
         description="MRR movement, stuck upgrades, webhook failures, and the credit ledger — the reconciliation surface across Stripe and BlockRadar."
       />
+      <FilterBar specs={[RANGE_SPEC]} />
       {isMock ? <MockBanner endpoint="GET /admin/billing" error={error} /> : null}
 
-      <SectionHeading>MRR movement (30d)</SectionHeading>
+      <SectionHeading>MRR movement · {rangeLabel(f.range)}</SectionHeading>
       <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="New" value={formatMoney(waterfall.newMrr)} />
         <StatCard label="Expansion" value={formatMoney(waterfall.expansion)} />

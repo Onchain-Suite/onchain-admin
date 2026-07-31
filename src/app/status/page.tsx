@@ -1,10 +1,12 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
+import { FilterBar } from "@/components/filter-bar";
 import { HealthPill } from "@/components/ui/health-pill";
 import { MockBanner } from "@/components/mock-banner";
 import { PageHeading, SectionHeading } from "@/components/section-heading";
 import { adminApi } from "@/lib/admin-api";
+import { LEVEL_SPEC, parseFilters, type SearchParams } from "@/lib/filters";
 import type { QueueDepth, SchedulerRun } from "@/lib/types";
 import { formatCompact, timeAgo } from "@/lib/utils";
 
@@ -16,8 +18,13 @@ const OUTCOME_TONE = {
   skipped: "neutral",
 } as const;
 
-export default async function StatusPage() {
-  const { data, isMock, error } = await adminApi.status();
+export default async function StatusPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const f = parseFilters(await searchParams);
+  const { data, isMock, error } = await adminApi.status(f);
 
   return (
     <>
@@ -25,6 +32,7 @@ export default async function StatusPage() {
         title="System status"
         description="One board aggregating health, queues, schedulers, and the error feed — answer 'is prod healthy?' in seconds."
       />
+      <FilterBar specs={[LEVEL_SPEC]} />
       {isMock ? <MockBanner endpoint="GET /admin/status" error={error} /> : null}
 
       <SectionHeading>Subsystems</SectionHeading>

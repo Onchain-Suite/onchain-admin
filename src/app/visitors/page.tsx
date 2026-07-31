@@ -1,10 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Meter } from "@/components/ui/meter";
 import { ChartLegend, ChartPanel } from "@/components/chart-panel";
+import { FilterBar } from "@/components/filter-bar";
 import { MockBanner } from "@/components/mock-banner";
 import { PageHeading } from "@/components/section-heading";
 import { StatCard } from "@/components/stat-card";
 import { adminApi } from "@/lib/admin-api";
+import { parseFilters, RANGE_SPEC, rangeLabel, type SearchParams } from "@/lib/filters";
 import { formatCompact } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -14,16 +16,22 @@ const VISIT_SERIES = [
   { key: "views", label: "Views", color: "var(--chart-2)" },
 ];
 
-export default async function VisitorsPage() {
-  const { data, isMock, error } = await adminApi.visitors();
+export default async function VisitorsPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const f = parseFilters(await searchParams);
+  const { data, isMock, error } = await adminApi.visitors(f);
   const topCountry = Math.max(...data.topCountries.map((c) => c.visitors), 1);
 
   return (
     <>
       <PageHeading
         title="Visitors"
-        description="First-party marketing-site analytics captured at the edge from Vercel geo headers (daily rollups, no raw IPs). 30-day window."
+        description="First-party marketing-site analytics captured at the edge from Vercel geo headers (daily rollups, no raw IPs)."
       />
+      <FilterBar specs={[RANGE_SPEC]} />
       {isMock ? (
         <MockBanner endpoint="GET /admin/analytics/visitors" error={error} />
       ) : null}
@@ -35,7 +43,7 @@ export default async function VisitorsPage() {
 
       <Card className="mb-8">
         <CardHeader className="flex items-center justify-between gap-2">
-          <CardTitle>Traffic · last 14 days</CardTitle>
+          <CardTitle>Traffic · {rangeLabel(f.range)}</CardTitle>
           <ChartLegend series={VISIT_SERIES} />
         </CardHeader>
         <CardContent>

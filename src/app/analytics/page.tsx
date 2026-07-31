@@ -1,10 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Meter } from "@/components/ui/meter";
 import { ChartLegend, ChartPanel } from "@/components/chart-panel";
+import { FilterBar } from "@/components/filter-bar";
 import { MockBanner } from "@/components/mock-banner";
 import { PageHeading, SectionHeading } from "@/components/section-heading";
 import { StatCard } from "@/components/stat-card";
 import { adminApi } from "@/lib/admin-api";
+import { parseFilters, RANGE_SPEC, rangeLabel, type SearchParams } from "@/lib/filters";
 import { formatCompact, formatMoney, formatPercent } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -14,8 +16,13 @@ const GROWTH_SERIES = [
   { key: "orgs", label: "Orgs", color: "var(--chart-2)" },
 ];
 
-export default async function AnalyticsPage() {
-  const { data, isMock, error } = await adminApi.analytics();
+export default async function AnalyticsPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const f = parseFilters(await searchParams);
+  const { data, isMock, error } = await adminApi.analytics(f);
   const { growth, engagement, revenue, deliverability } = data;
   const topPlanOrgs = Math.max(...revenue.plans.map((p) => p.orgs), 1);
 
@@ -23,8 +30,9 @@ export default async function AnalyticsPage() {
     <>
       <PageHeading
         title="Analytics"
-        description="Growth, engagement, revenue, and deliverability — read-only aggregates over the platform (30-day window)."
+        description={`Growth, engagement, revenue, and deliverability — read-only aggregates over the platform (${rangeLabel(f.range)}).`}
       />
+      <FilterBar specs={[RANGE_SPEC]} />
       {isMock ? (
         <MockBanner endpoint="GET /admin/analytics/overview" error={error} />
       ) : null}
@@ -41,7 +49,7 @@ export default async function AnalyticsPage() {
       <div className="mb-8 grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader className="flex items-center justify-between gap-2">
-            <CardTitle>Users & orgs · last 14 days</CardTitle>
+            <CardTitle>Users & orgs · {rangeLabel(f.range)}</CardTitle>
             <ChartLegend series={GROWTH_SERIES} />
           </CardHeader>
           <CardContent>
@@ -69,7 +77,7 @@ export default async function AnalyticsPage() {
         </Card>
       </div>
 
-      <SectionHeading>Engagement (30d)</SectionHeading>
+      <SectionHeading>Engagement · {rangeLabel(f.range)}</SectionHeading>
       <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard label="Campaigns launched" value={formatCompact(engagement.campaigns)} />
         <StatCard label="Emails sent" value={formatCompact(engagement.emails)} />

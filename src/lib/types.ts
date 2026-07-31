@@ -185,6 +185,7 @@ export interface ProviderHealth {
 export interface DomainReputation {
   domain: string;
   org: string;
+  provider: string; // "acs" | "sendgrid" | "ses"
   status: HealthStatus;
   sendReady: boolean;
   bounceRate: number;

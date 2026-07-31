@@ -1,10 +1,17 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
+import { FilterBar } from "@/components/filter-bar";
 import { HealthPill, ReputationPill } from "@/components/ui/health-pill";
 import { MockBanner } from "@/components/mock-banner";
 import { PageHeading, SectionHeading } from "@/components/section-heading";
 import { adminApi } from "@/lib/admin-api";
+import {
+  parseFilters,
+  PROVIDER_SPEC,
+  REPUTATION_SPEC,
+  type SearchParams,
+} from "@/lib/filters";
 import type { DeliverMetrics, DomainReputation, ProviderHealth } from "@/lib/types";
 import { formatCompact, formatPercent } from "@/lib/utils";
 
@@ -84,8 +91,13 @@ function ProviderCard({ p }: { p: ProviderHealth }) {
   );
 }
 
-export default async function DeliverabilityPage() {
-  const { data, isMock, error } = await adminApi.deliverability();
+export default async function DeliverabilityPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const f = parseFilters(await searchParams);
+  const { data, isMock, error } = await adminApi.deliverability(f);
 
   return (
     <>
@@ -93,6 +105,7 @@ export default async function DeliverabilityPage() {
         title="Deliverability"
         description="Your reputation moat: the three ESPs side-by-side and per-domain reputation across all orgs. Read-only — never sends or reroutes."
       />
+      <FilterBar specs={[PROVIDER_SPEC, REPUTATION_SPEC]} />
       {isMock ? (
         <MockBanner endpoint="GET /admin/email/providers/health" error={error} />
       ) : null}
