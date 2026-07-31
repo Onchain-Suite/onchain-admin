@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Instrument_Sans, JetBrains_Mono } from "next/font/google";
-import { headers } from "next/headers";
 
 import { AppShell } from "@/components/app-shell";
+import { SignOut } from "@/components/sign-out";
+import { getIdentity } from "@/lib/identity";
 
 import "./globals.css";
 import { Providers } from "./providers";
@@ -29,9 +30,8 @@ export const metadata: Metadata = {
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  // Identity verified by src/middleware.ts (Cloudflare Access JWT) and forwarded
-  // as x-admin-email — no re-verification needed here.
-  const email = (await headers()).get("x-admin-email") ?? "unknown";
+  const identity = await getIdentity();
+  const signedIn = identity.user !== "unknown";
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -40,7 +40,14 @@ export default async function RootLayout({
         suppressHydrationWarning
       >
         <Providers>
-          <AppShell email={email}>{children}</AppShell>
+          {signedIn ? (
+            <AppShell user={identity.user} signOut={<SignOut />}>
+              {children}
+            </AppShell>
+          ) : (
+            // Not signed in (e.g. /signin) — render bare, no shell.
+            children
+          )}
         </Providers>
       </body>
     </html>

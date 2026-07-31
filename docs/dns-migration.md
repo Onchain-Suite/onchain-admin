@@ -1,5 +1,13 @@
 # Migration runbook — leave GoDaddy, consolidate on Cloudflare
 
+> **STATUS: not needed for the current setup.** The admin app is gated by
+> **in-app GitHub sign-in** (Auth.js, org-restricted) — no Cloudflare, DNS stays
+> on GoDaddy (just a `CNAME admin → cname.vercel-dns.com`). Keep this only if you
+> ever decide to move DNS/registrar to Cloudflare for other reasons.
+
+---
+
+
 **Goal:** move `onchainsuite.com` entirely off GoDaddy and onto Cloudflare (DNS +
 registrar + Zero Trust Access), **without touching email deliverability**.
 

@@ -21,7 +21,7 @@ async function guarded(
 ): Promise<ActionResult> {
   const id = await getIdentity();
   if (!id.superAdmin) return DENIED;
-  const result = await run(id.email);
+  const result = await run(id.user);
   if (result.ok) revalidatePath(`/orgs/${orgId}`);
   return result;
 }

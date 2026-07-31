@@ -10,10 +10,12 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 
 export function AppShell({
-  email,
+  user,
+  signOut,
   children,
 }: {
-  email: string;
+  user: string;
+  signOut: ReactNode;
   children: ReactNode;
 }) {
   const pathname = usePathname() ?? "/";
@@ -69,10 +71,13 @@ export function AppShell({
                 {titleFor(pathname)}
               </div>
               <div className="truncate text-xs text-muted-foreground">
-                signed in as {email}
+                signed in as {user}
               </div>
             </div>
-            <ThemeToggle />
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              {signOut}
+            </div>
           </div>
           {/* Mobile nav */}
           <nav className="flex gap-1 overflow-x-auto border-t border-border/60 px-4 py-2 lg:hidden">

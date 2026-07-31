@@ -1,40 +1,39 @@
 # OnchainSuite Admin
 
-Internal, **read-only** monitoring console. Runs at `admin.onchainsuite.com`,
-gated by **Cloudflare Access (GitHub SSO)** at the edge, with a second identity
-check inside the app. Standalone deployment — none of this ships in the
-customer app bundle.
+Internal, **read-only** monitoring console, gated by **in-app GitHub sign-in**
+restricted to the OnchainSuite GitHub org. No Cloudflare — DNS can stay on
+GoDaddy. Standalone deployment on Vercel; none of this ships in the customer app
+bundle.
 
 Shares the OnchainSuite **Design System v2** tokens with the main app
 (`src/app/globals.css` ↔ the main app's `src/styles/globals.css`). Keep them in
 sync.
 
-## Two gates
+## The gate
 
-1. **Cloudflare Access** (network) — no unauthenticated request reaches the app.
-2. **App** (`src/middleware.ts`) — re-verifies the Access JWT and applies an
-   optional email allowlist. Belt and suspenders.
+1. **Sign in with GitHub** (Auth.js, `src/auth.ts`) — only members of the
+   `onchainsuite` org can sign in; `src/middleware.ts` redirects everyone else
+   to `/signin`. The GitHub **username** is the identity.
+2. **SUPER_ADMIN** (`ADMIN_SUPERADMINS`) — of those who sign in, only listed
+   usernames can run the mutating actions; everyone else is read-only.
 
-The console only ever issues `GET /admin/*` to the backend with a scoped
-read-only token. There are no mutating actions by design.
+The console only issues `GET /admin/*` to the backend with a scoped read-only
+token; mutations go through audited, SUPER_ADMIN-only server actions.
 
-## 1. Cloudflare Access — GitHub SSO (dashboard)
+## 1. GitHub OAuth app (one-time setup)
 
-You don't have Google Workspace; use your existing GitHub org instead.
+Create a GitHub OAuth app — `github.com/settings/developers` → **New OAuth App**
+(or the org → Settings → Developer settings → OAuth Apps to own it at the org):
 
-1. **Zero Trust → Settings → Authentication → Login methods → Add GitHub.**
-   Follow the OAuth-app steps; authorize the `onchainsuite` org.
-2. **Zero Trust → Access → Applications → Add → Self-hosted.**
-   - Application domain: `admin.onchainsuite.com`
-   - Identity provider: GitHub
-   - Session duration: 8–24h
-3. **Policy** (Allow): rule = *GitHub → Organization = onchainsuite*. Optionally
-   require WARP / device posture.
-4. Open the app's **Overview** and copy the **Application Audience (AUD) tag**,
-   and note your **team domain** (`<team>.cloudflareaccess.com`).
+- **Homepage URL:** `https://admin.onchainsuite.com` (or your Vercel URL)
+- **Authorization callback URLs:**
+  - `https://admin.onchainsuite.com/api/auth/callback/github` (prod)
+  - `http://localhost:3100/api/auth/callback/github` (dev)
 
-For a 5-person team you can also add **One-time PIN** as a second login method
-and require both, or allowlist the 5 emails via `ADMIN_ALLOWLIST`.
+Copy the **Client ID** and generate a **Client Secret** → `AUTH_GITHUB_ID` /
+`AUTH_GITHUB_SECRET`. Set `ADMIN_GITHUB_ORG=onchainsuite` and an `AUTH_SECRET`
+(`openssl rand -base64 32`). Org membership is checked at sign-in via the
+`read:org` scope.
 
 ## 2. Backend read-only token
 
@@ -48,72 +47,69 @@ data.
 
 ```bash
 bun install
-cp .env.example .env.local   # fill CF_ACCESS_* when wiring real auth
-bun run dev                  # ADMIN_DEV_BYPASS_AUTH=1 lets you in on localhost
+cp .env.example .env.local   # AUTH_SECRET is prefilled; add GitHub creds for real sign-in
+bun run dev                  # ADMIN_DEV_BYPASS_AUTH=1 lets you in without OAuth
 ```
 
-There is no Cloudflare Access in front of `localhost`, so
-`ADMIN_DEV_BYPASS_AUTH=1` (dev only, ignored in production) bypasses the JWT
-gate. Never set it in a deployed environment.
+`ADMIN_DEV_BYPASS_AUTH=1` (dev only, ignored in production) skips GitHub sign-in
+on localhost so you don't need OAuth to run the app. Never set it in a
+deployment.
 
 ## 4. Deploy (Vercel)
 
-Hosted on **Vercel** (matches the org's other frontends), fronted by Cloudflare
-Access. CI/CD is wired: every push to `main` deploys.
+Hosted on **Vercel** (matches the org's other frontends). CI/CD is wired: every
+push to `main` deploys.
 
 **Env vars** (Vercel → Project → Settings → Environment Variables, Production):
 
 ```
-CF_ACCESS_TEAM_DOMAIN=<team>.cloudflareaccess.com
-CF_ACCESS_AUD=<admin Access application AUD tag>
+AUTH_SECRET=<openssl rand -base64 32>            # secret
+AUTH_GITHUB_ID=<oauth app client id>
+AUTH_GITHUB_SECRET=<oauth app client secret>     # secret
+ADMIN_GITHUB_ORG=onchainsuite
 BACKEND_URL=https://<backend>/api/v1
-ADMIN_API_TOKEN=<read-only service token>       # secret
-ADMIN_SUPERADMINS=you@onchainsuite.com,...       # who may mutate
-ADMIN_MOCK=0                                      # once GET /admin/* is live
+ADMIN_API_TOKEN=<read-only service token>        # secret
+ADMIN_SUPERADMINS=your-gh-username,...            # who may mutate
+ADMIN_MOCK=0                                       # once GET /admin/* is live
 # never set ADMIN_DEV_BYPASS_AUTH in production
 ```
 
-**Domain + Access** (the security gate — required):
+**Domain (optional, DNS stays on GoDaddy):**
 
-1. Add `admin.onchainsuite.com` as a domain on the Vercel project.
-2. In Cloudflare DNS, point it at Vercel and keep the record **proxied**
-   (orange cloud) so Cloudflare Access intercepts every request.
-3. Point the Access application (README §1) at that hostname.
+1. Add `admin.onchainsuite.com` to the Vercel project.
+2. In **GoDaddy DNS**, add the `CNAME admin → cname.vercel-dns.com` (or the
+   record Vercel shows). No Cloudflare, no nameserver change.
+3. Update the GitHub OAuth app's callback URL to the final hostname.
 
-**Vercel Deployment Protection:** on by default, so `*.vercel.app` URLs
-currently redirect (302) to Vercel SSO — an extra lock while you finish setup.
-Before going live on `admin.onchainsuite.com`, set Protection to **Only Preview
-Deployments** (Project → Settings → Deployment Protection). Otherwise internal
-users are double-gated (Cloudflare Access *and* Vercel SSO) and would each need
-a Vercel account. Cloudflare Access + the in-app JWT check are the intended
+**Vercel Deployment Protection:** the app already gates itself with GitHub
+sign-in, so set Protection to **Only Preview Deployments** (Project → Settings →
+Deployment Protection) — otherwise viewers are double-gated (Vercel SSO *and*
+GitHub) and each would need a Vercel account. The app's own `/signin` is the
 production gate.
-
-Once Protection is preview-only, the raw production `*.vercel.app` URL
-**returns 403 for every request** — the middleware requires an Access JWT and
-there is none without Cloudflare in front. That 403 wall is the gate working,
-not a broken deploy.
-
-Alternative host: anywhere that runs a Next.js Node server, or Cloudflare
-Workers via OpenNext. Same env + proxied-hostname requirement.
 
 ## Hardening already wired
 
 - `X-Robots-Tag: noindex`, `X-Frame-Options: DENY`, `nosniff`, `no-referrer`
   on every response (`next.config.ts`).
-- Read-only service layer — no mutations exist.
-- Access JWT verified in-app even though the edge already gates it.
+- Read-only service layer — mutations only via audited, SUPER_ADMIN server actions.
+- Middleware requires a valid session; unauthenticated → `/signin`.
 
 ## Structure
 
 ```
 src/
-  middleware.ts          # gate: verify Access JWT + allowlist
+  auth.ts                # Auth.js: GitHub provider, org-restricted sign-in
+  middleware.ts          # gate: require session, else redirect to /signin
   lib/
-    access.ts            # Access JWT verification (jose)
+    access.ts            # allowlist + SUPER_ADMIN (by GitHub username)
+    identity.ts          # resolve signed-in user + role from the session
     admin-api.ts         # SERVER-ONLY read-only backend client
-    types.ts             # AdminSnapshot contracts (mirror on the backend)
-    mock.ts              # sample data until GET /admin/snapshot lands
+    admin-actions.ts     # SERVER-ONLY mutating actions (SUPER_ADMIN)
+    endpoints.ts         # central backend endpoint map (reads + mutations)
+    types.ts             # contracts (mirror on the backend)
+    mock.ts              # sample data until GET /admin/* lands
   app/
-    layout.tsx, globals.css, page.tsx, loading.tsx
-  components/            # design-system-v2 UI (cards, badges, chart)
+    signin/, api/auth/[...nextauth]/  # sign-in page + Auth.js routes
+    layout.tsx, globals.css, page.tsx, loading.tsx, actions.ts
+  components/            # design-system-v2 UI (cards, badges, chart, filters)
 ```
