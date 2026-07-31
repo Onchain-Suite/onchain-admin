@@ -80,10 +80,18 @@ ADMIN_MOCK=0                                      # once GET /admin/* is live
    (orange cloud) so Cloudflare Access intercepts every request.
 3. Point the Access application (README §1) at that hostname.
 
-Until Access fronts it, the raw `*.vercel.app` URL **returns 403 for every
-request** — the middleware requires a valid Access JWT and there is none
-without Cloudflare in front. That 403 wall is the gate working, not a broken
-deploy.
+**Vercel Deployment Protection:** on by default, so `*.vercel.app` URLs
+currently redirect (302) to Vercel SSO — an extra lock while you finish setup.
+Before going live on `admin.onchainsuite.com`, set Protection to **Only Preview
+Deployments** (Project → Settings → Deployment Protection). Otherwise internal
+users are double-gated (Cloudflare Access *and* Vercel SSO) and would each need
+a Vercel account. Cloudflare Access + the in-app JWT check are the intended
+production gate.
+
+Once Protection is preview-only, the raw production `*.vercel.app` URL
+**returns 403 for every request** — the middleware requires an Access JWT and
+there is none without Cloudflare in front. That 403 wall is the gate working,
+not a broken deploy.
 
 Alternative host: anywhere that runs a Next.js Node server, or Cloudflare
 Workers via OpenNext. Same env + proxied-hostname requirement.
