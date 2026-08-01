@@ -25,6 +25,9 @@ export const metadata: Metadata = {
   title: "OnchainSuite Admin",
   description: "Internal monitoring console.",
   robots: { index: false, follow: false },
+  icons: {
+    icon: "https://res.cloudinary.com/dwnkqkx8q/image/upload/v1761094220/onchain_light_wylceb.png",
+  },
 };
 
 export default async function RootLayout({
