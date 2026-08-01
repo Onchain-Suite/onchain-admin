@@ -1,39 +1,77 @@
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DataTable } from "@/components/ui/data-table";
-import { FilterBar } from "@/components/filter-bar";
-import { HealthPill } from "@/components/ui/health-pill";
+import { CheckCircleIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+
 import { MockBanner } from "@/components/mock-banner";
 import { PageHeading, SectionHeading } from "@/components/section-heading";
-import { adminApi } from "@/lib/admin-api";
-import { LEVEL_SPEC, parseFilters, type SearchParams } from "@/lib/filters";
-import type { QueueDepth, SchedulerRun } from "@/lib/types";
-import { formatCompact, timeAgo } from "@/lib/utils";
+import { StatCard } from "@/components/stat-card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DataTable } from "@/components/ui/data-table";
+import { HealthPill } from "@/components/ui/health-pill";
+import { getSystemStatus, type QueueRow } from "@/lib/system";
+import { formatCompact, formatPercent } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-const OUTCOME_TONE = {
-  ok: "success",
-  failed: "danger",
-  skipped: "neutral",
-} as const;
-
-export default async function StatusPage({
-  searchParams,
-}: {
-  searchParams: Promise<SearchParams>;
-}) {
-  const f = parseFilters(await searchParams);
-  const { data, isMock, error } = await adminApi.status(f);
+export default async function StatusPage() {
+  const { data, isMock, error } = await getSystemStatus();
 
   return (
     <>
       <PageHeading
         title="System status"
-        description="One board aggregating health, queues, schedulers, and the error feed — answer 'is prod healthy?' in seconds."
+        description="Platform-wide health, queues, and failure rate — live from the backend's /health and /observability endpoints. Answer 'is prod healthy?' in seconds."
+        action={
+          isMock ? null : (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
+              Live
+            </span>
+          )
+        }
       />
-      <FilterBar specs={[LEVEL_SPEC]} />
-      {isMock ? <MockBanner endpoint="GET /admin/status" error={error} /> : null}
+      {isMock ? (
+        <MockBanner endpoint="GET /health, /observability/failure-rate" error={error} />
+      ) : null}
+
+      {/* Overall + failure-rate summary */}
+      <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="flex items-center justify-between p-5">
+          <div>
+            <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+              Overall
+            </div>
+            <div className="mt-2 text-lg font-semibold capitalize text-foreground">
+              {data.overall}
+            </div>
+          </div>
+          {data.overall === "operational" ? (
+            <CheckCircleIcon className="h-8 w-8 text-emerald-500" aria-hidden="true" />
+          ) : (
+            <ExclamationTriangleIcon className="h-8 w-8 text-amber-500" aria-hidden="true" />
+          )}
+        </Card>
+        <StatCard
+          label="HTTP error rate"
+          value={data.failure ? formatPercent(data.failure.httpErrorRate) : "—"}
+          hint={data.failure ? `${formatCompact(data.failure.httpTotal)} reqs` : undefined}
+          tone={data.failure && data.failure.httpErrorRate >= 0.01 ? "danger" : "default"}
+        />
+        <StatCard
+          label="Queue failure rate"
+          value={data.failure ? formatPercent(data.failure.queueFailureRate) : "—"}
+          hint={data.failure ? `${data.failure.queueFailed} failed` : undefined}
+          tone={data.failure && data.failure.queueFailed > 0 ? "danger" : "default"}
+        />
+        <StatCard
+          label="Routes healthy"
+          value={
+            data.routes
+              ? `${data.routes.observed - data.routes.failing - data.routes.degraded}/${data.routes.observed}`
+              : "—"
+          }
+          hint={data.routes && data.routes.failing > 0 ? `${data.routes.failing} failing` : undefined}
+          tone={data.routes && data.routes.failing > 0 ? "danger" : "default"}
+        />
+      </div>
 
       <SectionHeading>Subsystems</SectionHeading>
       <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -50,100 +88,30 @@ export default async function StatusPage({
         ))}
       </div>
 
-      <div className="mb-8 grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Queue depths</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <DataTable<QueueDepth>
-              rows={data.queues}
-              rowKey={(q) => q.name}
-              columns={[
-                { header: "Queue", cell: (q) => <span className="font-mono text-xs">{q.name}</span> },
-                { header: "Waiting", align: "right", cell: (q) => formatCompact(q.waiting) },
-                { header: "Active", align: "right", cell: (q) => q.active },
-                {
-                  header: "Failed",
-                  align: "right",
-                  cell: (q) =>
-                    q.failed > 0 ? (
-                      <span className="text-destructive">{q.failed}</span>
-                    ) : (
-                      q.failed
-                    ),
-                },
-              ]}
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Schedulers · last run</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <DataTable<SchedulerRun>
-              rows={data.schedulers}
-              rowKey={(s) => s.name}
-              columns={[
-                { header: "Scheduler", cell: (s) => <span className="font-mono text-xs">{s.name}</span> },
-                { header: "Last run", cell: (s) => timeAgo(s.lastRun) },
-                {
-                  header: "Outcome",
-                  align: "right",
-                  cell: (s) => <Badge tone={OUTCOME_TONE[s.outcome]}>{s.outcome}</Badge>,
-                },
-              ]}
-            />
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle>Process</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <Row label="RSS memory" value={`${data.process.rssMb} MB`} />
-            <Row label="Event-loop lag" value={`${data.process.eventLoopLagMs} ms`} />
-            <Row label="Uptime" value={`${data.process.uptimeHours} h`} />
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Error feed</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2.5">
-            {data.errors.map((err) => (
-              <div
-                key={err.id}
-                className="flex items-start justify-between gap-3 rounded-lg border border-border/50 bg-background/50 p-3"
-              >
-                <div className="min-w-0">
-                  <div className="font-mono text-xs text-muted-foreground">{err.source}</div>
-                  <p className="mt-0.5 text-sm text-foreground">{err.message}</p>
-                </div>
-                <div className="flex shrink-0 flex-col items-end gap-1">
-                  <Badge tone={err.level === "error" ? "danger" : "warning"}>{err.level}</Badge>
-                  <span className="text-xs text-muted-foreground">{timeAgo(err.at)}</span>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Queues</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <DataTable<QueueRow>
+            rows={data.queues}
+            rowKey={(q) => q.name}
+            empty="No queues reported."
+            columns={[
+              { header: "Queue", cell: (q) => <span className="font-mono text-xs">{q.name}</span> },
+              { header: "Waiting", align: "right", cell: (q) => formatCompact(q.waiting) },
+              { header: "Active", align: "right", cell: (q) => q.active },
+              {
+                header: "Failed",
+                align: "right",
+                cell: (q) =>
+                  q.failed > 0 ? <span className="text-destructive">{q.failed}</span> : q.failed,
+              },
+              { header: "Workers", align: "right", cell: (q) => q.workers },
+            ]}
+          />
+        </CardContent>
+      </Card>
     </>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium tabular-nums text-foreground">{value}</span>
-    </div>
   );
 }
