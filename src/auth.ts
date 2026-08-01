@@ -5,9 +5,9 @@ const REQUIRED_ORG = (process.env.ADMIN_GITHUB_ORG ?? "onchainsuite").toLowerCas
 
 /**
  * In-app identity gate: sign in with GitHub, restricted to members of the
- * required org. Replaces the Cloudflare Access edge gate — no Cloudflare, DNS
- * stays on GoDaddy. The GitHub username becomes the identity used by the
- * SUPER_ADMIN allowlist (src/lib/access.ts).
+ * required org. Gates the app at the app layer — no edge or DNS dependency.
+ * The GitHub username becomes the identity used by the SUPER_ADMIN allowlist
+ * (src/lib/access.ts).
  */
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [

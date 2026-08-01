@@ -2,7 +2,7 @@
   "name": "onchain-admin",
   "version": "0.1.0",
   "private": true,
-  "description": "Internal, read-only monitoring console for OnchainSuite. Gated by Cloudflare Access (GitHub SSO) at admin.onchainsuite.com.",
+  "description": "Internal, read-only monitoring console for OnchainSuite. Gated by in-app GitHub sign-in, restricted to the OnchainSuite org.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

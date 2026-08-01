@@ -3,8 +3,8 @@ import type { NextConfig } from "next";
 /**
  * Internal admin console. Every response is marked non-indexable and framed
  * defensively — this app must never be discoverable or embeddable. The real
- * access gate is Cloudflare Access on the hostname (see README); these headers
- * are hardening, not the primary control.
+ * access gate is the GitHub sign-in enforced in middleware (see README); these
+ * headers are hardening, not the primary control.
  */
 const nextConfig: NextConfig = {
   async headers() {

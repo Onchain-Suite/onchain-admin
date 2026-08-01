@@ -8,10 +8,10 @@ is the identity used for authorization.
 
 Everything below works on **GitHub Free**: OAuth apps, the org-membership check
 (`read:org`), the private repo, and Actions CI (2,000 free min/month for private
-repos; our run is ~40s). Pro/Team/Enterprise are **not** required. (Only SAML
+repos; our run is \~40s). Pro/Team/Enterprise are **not** required. (Only SAML
 SSO/SCIM needs Enterprise, and we don't use it.)
 
----
+***
 
 ## Step 1 — Create the OAuth app (org-owned)
 
@@ -28,8 +28,8 @@ app at `github.com/settings/developers` also works).
 
 Click **Register application**, then:
 
-- Copy the **Client ID** → `AUTH_GITHUB_ID`
-- **Generate a new client secret** → `AUTH_GITHUB_SECRET` (shown once — copy it)
+- Copy the **Client ID** → `AUTH_GITHUB_ID `
+- **Generate a new client secret** → `AUTH_GITHUB_SECRET` 
 
 ## Step 2 — Approve the app for the org (if restrictions are on)
 
@@ -44,9 +44,9 @@ Vercel → `onchain-admin` project → **Settings → Environment Variables →
 Production** (add to Preview too if you want the app usable on preview URLs):
 
 ```
-AUTH_SECRET=<run: openssl rand -base64 32>          # secret
+AUTH_SECRET=<run: openssl rand -base64 32>           # secret — do NOT commit
 AUTH_GITHUB_ID=<client id from step 1>
-AUTH_GITHUB_SECRET=<client secret from step 1>       # secret
+AUTH_GITHUB_SECRET=<client secret from step 1>       # secret — do NOT commit
 ADMIN_GITHUB_ORG=onchainsuite
 
 # Who can sign in (optional). These four = only them. Empty = any org member.
@@ -54,7 +54,7 @@ ADMIN_ALLOWLIST=jorshimayor,Olusegun-Aborode,joel-obafemi,mujeebahmad03
 # Who can run mutating actions (domain resync, wallet credit, plan change).
 ADMIN_SUPERADMINS=jorshimayor,Olusegun-Aborode,joel-obafemi,mujeebahmad03
 
-BACKEND_URL=https://<backend>/api/v1
+BACKEND_URL=https://api.onchainsuite.com/api/v1
 ADMIN_API_TOKEN=<read-only token, when the backend has it>   # secret
 ADMIN_MOCK=1                                          # 0 once GET /admin/* is live
 # never set ADMIN_DEV_BYPASS_AUTH in production
@@ -79,10 +79,10 @@ double-prompt everyone.
 - [ ] "Sign in with GitHub" → GitHub consent → back into the app.
 - [ ] A **non-org-member** who tries is bounced back to `/signin` (denied).
 - [ ] A **super-admin** (list above) sees the "Admin actions" panel on an org
-      detail page; a non-super-admin sees the read-only note instead.
+  detail page; a non-super-admin sees the read-only note instead.
 - [ ] Sign out (top-right) returns to `/signin`.
 
----
+***
 
 ## Local development
 
@@ -90,6 +90,7 @@ You do **not** need OAuth to run locally — `ADMIN_DEV_BYPASS_AUTH=1` in
 `.env.local` signs you in as `dev` (a super-admin) and skips GitHub entirely.
 
 To test **real** GitHub sign-in locally, either:
+
 - temporarily point the prod OAuth app's callback at
   `http://localhost:3100/api/auth/callback/github`, or
 - create a **second** personal OAuth app with that localhost callback and put
@@ -97,10 +98,11 @@ To test **real** GitHub sign-in locally, either:
 
 ## Troubleshooting
 
-| Symptom | Cause / fix |
-| --- | --- |
-| `redirect_uri` mismatch on GitHub | Callback URL in the OAuth app ≠ the app's `/api/auth/callback/github`. Match host + path exactly. |
-| Signs in but immediately bounced to `/signin` | Not an `onchainsuite` member, or the org's third-party policy hasn't approved the app (Step 2). |
-| Everyone can get in, even non-members | `ADMIN_GITHUB_ORG` unset/typo — the membership check defaults open only if it can't read; confirm the var and the app approval. |
-| Super-admin panel never shows | The user's GitHub username isn't in `ADMIN_SUPERADMINS` (case-insensitive), or the var didn't redeploy. |
-| `MissingSecret` / session errors | `AUTH_SECRET` not set in the environment. |
+| Symptom                                       | Cause / fix                                                                                                                     |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `redirect_uri` mismatch on GitHub             | Callback URL in the OAuth app ≠ the app's `/api/auth/callback/github`. Match host + path exactly.                               |
+| Signs in but immediately bounced to `/signin` | Not an `onchainsuite` member, or the org's third-party policy hasn't approved the app (Step 2).                                 |
+| Everyone can get in, even non-members         | `ADMIN_GITHUB_ORG` unset/typo — the membership check defaults open only if it can't read; confirm the var and the app approval. |
+| Super-admin panel never shows                 | The user's GitHub username isn't in `ADMIN_SUPERADMINS` (case-insensitive), or the var didn't redeploy.                         |
+| `MissingSecret` / session errors              | `AUTH_SECRET` not set in the environment.                                                                                       |
+
