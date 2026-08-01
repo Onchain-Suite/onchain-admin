@@ -5,6 +5,7 @@ import { OrgField } from "@/components/org-field";
 import { PageHeading, SectionHeading } from "@/components/section-heading";
 import { type SearchParams } from "@/lib/filters";
 import { getOrgBilling } from "@/lib/org-api";
+import { getOrgId } from "@/lib/org-context";
 import { formatCompact, formatMoney } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -14,8 +15,7 @@ export default async function BillingPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const sp = await searchParams;
-  const org = typeof sp.org === "string" ? sp.org : "";
+  const org = await getOrgId(await searchParams);
   const { data, isMock, needsOrg, error } = await getOrgBilling(org);
 
   return (

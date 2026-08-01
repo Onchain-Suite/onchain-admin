@@ -5,6 +5,7 @@ import { PageHeading, SectionHeading } from "@/components/section-heading";
 import { StatCard } from "@/components/stat-card";
 import { type SearchParams } from "@/lib/filters";
 import { getOrgAnalytics } from "@/lib/org-api";
+import { getOrgId } from "@/lib/org-context";
 import { formatCompact } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -17,8 +18,7 @@ export default async function AnalyticsPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const sp = await searchParams;
-  const org = typeof sp.org === "string" ? sp.org : "";
+  const org = await getOrgId(await searchParams);
   const { data, isMock, needsOrg, error } = await getOrgAnalytics(org);
 
   return (

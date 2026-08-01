@@ -1,10 +1,30 @@
-import { ShieldCheckIcon } from "@heroicons/react/24/outline";
+import {
+  ExclamationTriangleIcon,
+  ShieldCheckIcon,
+} from "@heroicons/react/24/outline";
 
 import { signIn } from "@/auth";
+import { type SearchParams } from "@/lib/filters";
 
 export const metadata = { title: "Sign in · OnchainSuite Admin" };
 
-export default function SignInPage() {
+const MESSAGES: Record<string, string> = {
+  AccessDenied:
+    "Your GitHub sign-in worked, but you're not recognized as a member of the OnchainSuite org. If you are a member, an org owner may need to approve this OAuth app (Org → Settings → Third-party access).",
+  Configuration:
+    "Sign-in is misconfigured on the server (check AUTH_SECRET and the GitHub OAuth env vars).",
+  Verification: "That sign-in link has expired. Try again.",
+};
+
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const sp = await searchParams;
+  const code = typeof sp.error === "string" ? sp.error : "";
+  const message = code ? (MESSAGES[code] ?? "Sign-in failed. Please try again.") : "";
+
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm rounded-2xl border border-border/60 bg-card p-8 text-center shadow-sm">
@@ -17,6 +37,17 @@ export default function SignInPage() {
         <p className="mt-1 text-sm text-muted-foreground">
           Internal monitoring · members of the OnchainSuite GitHub org only.
         </p>
+
+        {message ? (
+          <div className="mt-4 flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-left text-xs text-destructive">
+            <ExclamationTriangleIcon
+              className="mt-0.5 h-4 w-4 shrink-0"
+              aria-hidden="true"
+            />
+            <span>{message}</span>
+          </div>
+        ) : null}
+
         <form
           action={async () => {
             "use server";

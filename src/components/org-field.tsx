@@ -18,8 +18,14 @@ export function OrgField({ current }: { current: string }) {
   const apply = () => {
     const next = new URLSearchParams(params.toString());
     const v = value.trim();
-    if (v) next.set("org", v);
-    else next.delete("org");
+    if (v) {
+      next.set("org", v);
+      // Persist across navigation (nav links don't carry ?org).
+      document.cookie = `admin_org=${encodeURIComponent(v)}; path=/; max-age=${60 * 60 * 24 * 30}; samesite=lax`;
+    } else {
+      next.delete("org");
+      document.cookie = "admin_org=; path=/; max-age=0; samesite=lax";
+    }
     const qs = next.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   };

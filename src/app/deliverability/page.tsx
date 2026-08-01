@@ -6,6 +6,7 @@ import { OrgField } from "@/components/org-field";
 import { PageHeading } from "@/components/section-heading";
 import { type SearchParams } from "@/lib/filters";
 import { getOrgDomains, type OrgDomain } from "@/lib/org-api";
+import { getOrgId } from "@/lib/org-context";
 
 export const dynamic = "force-dynamic";
 
@@ -14,8 +15,7 @@ export default async function DeliverabilityPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const sp = await searchParams;
-  const org = typeof sp.org === "string" ? sp.org : "";
+  const org = await getOrgId(await searchParams);
   const { data, isMock, needsOrg, error } = await getOrgDomains(org);
 
   return (
