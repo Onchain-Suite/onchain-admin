@@ -22,11 +22,14 @@ async function isOrgMember(token: string): Promise<boolean> {
       { headers: GH_HEADERS(token) }
     );
     if (m.ok) {
-      const body = (await m.json()) as { state?: string };
+      const body = (await m.json()) as { state?: string; role?: string };
+      console.warn(`[admin-auth] memberships/${REQUIRED_ORG} → ${m.status} state=${body.state} role=${body.role}`);
       if (body.state === "active") return true;
+    } else {
+      console.warn(`[admin-auth] memberships/${REQUIRED_ORG} → ${m.status} (not ok)`);
     }
-  } catch {
-    /* fall through to the list check */
+  } catch (e) {
+    console.warn("[admin-auth] memberships error", e instanceof Error ? e.message : e);
   }
   try {
     const r = await fetch("https://api.github.com/user/orgs?per_page=100", {
@@ -34,10 +37,15 @@ async function isOrgMember(token: string): Promise<boolean> {
     });
     if (r.ok) {
       const orgs = (await r.json()) as Array<{ login?: string }>;
+      console.warn(
+        `[admin-auth] /user/orgs → ${r.status} orgs=[${orgs.map((o) => o.login).join(",")}] need=${REQUIRED_ORG}`
+      );
       if (orgs.some((o) => o.login?.toLowerCase() === REQUIRED_ORG)) return true;
+    } else {
+      console.warn(`[admin-auth] /user/orgs → ${r.status} (not ok)`);
     }
-  } catch {
-    /* deny below */
+  } catch (e) {
+    console.warn("[admin-auth] /user/orgs error", e instanceof Error ? e.message : e);
   }
   return false;
 }
@@ -57,7 +65,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     async signIn({ account }) {
       const token = account?.access_token;
-      return typeof token === "string" ? isOrgMember(token) : false;
+      if (typeof token !== "string") {
+        console.warn("[admin-auth] no access_token on account — check OAuth app type/scopes");
+        return false;
+      }
+      const ok = await isOrgMember(token);
+      console.warn(`[admin-auth] signIn allowed=${ok}`);
+      return ok;
     },
     async jwt({ token, profile }) {
       const login = (profile as { login?: string } | undefined)?.login;
