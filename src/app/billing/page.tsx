@@ -1,129 +1,101 @@
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DataTable } from "@/components/ui/data-table";
-import { FilterBar } from "@/components/filter-bar";
+import { Card, CardContent } from "@/components/ui/card";
+import { Meter } from "@/components/ui/meter";
 import { MockBanner } from "@/components/mock-banner";
+import { OrgField } from "@/components/org-field";
 import { PageHeading, SectionHeading } from "@/components/section-heading";
-import { StatCard } from "@/components/stat-card";
-import { adminApi } from "@/lib/admin-api";
-import { parseFilters, RANGE_SPEC, rangeLabel, type SearchParams } from "@/lib/filters";
-import type { BillingOps } from "@/lib/types";
-import { formatMoney, timeAgo } from "@/lib/utils";
+import { type SearchParams } from "@/lib/filters";
+import { getOrgBilling } from "@/lib/org-api";
+import { formatCompact, formatMoney } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
-
-type Pending = BillingOps["pending"][number];
-type Ledger = BillingOps["ledger"][number];
 
 export default async function BillingPage({
   searchParams,
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const f = parseFilters(await searchParams);
-  const { data, isMock, error } = await adminApi.billing(f);
-  const { waterfall } = data;
-  const netNew =
-    waterfall.newMrr + waterfall.expansion + waterfall.contraction + waterfall.churn;
+  const sp = await searchParams;
+  const org = typeof sp.org === "string" ? sp.org : "";
+  const { data, isMock, needsOrg, error } = await getOrgBilling(org);
 
   return (
     <>
       <PageHeading
-        title="Billing operations"
-        description="MRR movement, stuck upgrades, webhook failures, and the credit ledger — the reconciliation surface across Stripe and BlockRadar."
+        title="Billing"
+        description="Plan and live usage meters for an organization, from GET /billing/plan-usage. Read-only."
       />
-      <FilterBar specs={[RANGE_SPEC]} />
-      {isMock ? <MockBanner endpoint="GET /admin/billing" error={error} /> : null}
+      <OrgField current={org} />
 
-      <SectionHeading>MRR movement · {rangeLabel(f.range)}</SectionHeading>
-      <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <StatCard label="New" value={formatMoney(waterfall.newMrr)} />
-        <StatCard label="Expansion" value={formatMoney(waterfall.expansion)} />
-        <StatCard label="Contraction" value={formatMoney(waterfall.contraction)} tone="danger" />
-        <StatCard label="Churn" value={formatMoney(waterfall.churn)} tone="danger" />
-        <StatCard label="Net new MRR" value={formatMoney(netNew)} />
-      </div>
-
-      <div className="mb-8 grid gap-6 lg:grid-cols-2">
+      {needsOrg ? (
         <Card>
-          <CardHeader>
-            <CardTitle>Pending upgrades</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <DataTable<Pending>
-              rows={data.pending}
-              rowKey={(p) => p.id}
-              empty="No pending upgrades."
-              columns={[
-                { header: "Org", cell: (p) => <span className="text-foreground">{p.org}</span> },
-                { header: "Amount", align: "right", cell: (p) => formatMoney(p.amount) },
-                {
-                  header: "Status",
-                  cell: (p) => (
-                    <Badge tone={p.status === "amount_mismatch" ? "danger" : "warning"}>
-                      {p.status.replace(/_/g, " ")}
-                    </Badge>
-                  ),
-                },
-                {
-                  header: "Age",
-                  align: "right",
-                  cell: (p) => (
-                    <span className={p.ageHours > 1 ? "text-destructive" : "text-muted-foreground"}>
-                      {p.ageHours.toFixed(1)}h
-                    </span>
-                  ),
-                },
-              ]}
-            />
+          <CardContent className="p-8 text-center text-sm text-muted-foreground">
+            Enter an organization id above to load its plan and usage.
           </CardContent>
         </Card>
+      ) : (
+        <>
+          {isMock ? (
+            <MockBanner endpoint="GET /billing/plan-usage/{organizationId}" error={error} />
+          ) : null}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Webhook failures</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2.5">
-            {data.webhookFailures.map((w) => (
-              <div key={w.id} className="rounded-lg border border-border/50 bg-background/50 p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-xs text-muted-foreground">{w.kind}</span>
-                  <span className="text-xs text-muted-foreground">{timeAgo(w.at)}</span>
-                </div>
-                <p className="mt-1 text-sm text-foreground">{w.detail}</p>
+          <div className="mb-8 grid gap-3 sm:grid-cols-3">
+            <Card className="p-5">
+              <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                Plan
               </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
+              <div className="mt-2 text-2xl font-semibold text-foreground">
+                {data.plan.label}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">{data.plan.key}</div>
+            </Card>
+            <Card className="p-5">
+              <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                Monthly price
+              </div>
+              <div className="mt-2 text-2xl font-semibold text-foreground">
+                {formatMoney(data.plan.monthlyPrice)}
+              </div>
+            </Card>
+            <Card className="p-5">
+              <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                Period
+              </div>
+              <div className="mt-2 text-2xl font-semibold text-foreground">
+                {data.period || "—"}
+              </div>
+            </Card>
+          </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Credit ledger</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <DataTable<Ledger>
-            rows={data.ledger}
-            rowKey={(l) => `${l.at}-${l.org}`}
-            columns={[
-              { header: "When", cell: (l) => <span className="text-muted-foreground">{timeAgo(l.at)}</span> },
-              { header: "Org", cell: (l) => <span className="text-foreground">{l.org}</span> },
-              { header: "Kind", cell: (l) => <span className="font-mono text-xs text-muted-foreground">{l.kind}</span> },
-              { header: "Reference", cell: (l) => <span className="font-mono text-xs text-muted-foreground">{l.reference ?? "—"}</span> },
-              {
-                header: "Amount",
-                align: "right",
-                cell: (l) => (
-                  <span className={l.amount < 0 ? "text-muted-foreground" : "text-emerald-600 dark:text-emerald-400"}>
-                    {l.amount < 0 ? "" : "+"}
-                    {formatMoney(l.amount)}
-                  </span>
-                ),
-              },
-            ]}
-          />
-        </CardContent>
-      </Card>
+          <SectionHeading>Usage meters</SectionHeading>
+          <Card>
+            <CardContent className="space-y-4">
+              {data.meters.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No meters reported.</p>
+              ) : (
+                data.meters.map((m) => {
+                  const unlimited = m.limit < 0;
+                  return (
+                    <div key={m.name}>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-foreground">{m.name}</span>
+                        <span className="tabular-nums text-muted-foreground">
+                          {formatCompact(m.used)} /{" "}
+                          {unlimited ? "∞" : formatCompact(m.limit)}
+                        </span>
+                      </div>
+                      {unlimited ? (
+                        <div className="mt-1.5 h-1.5 w-full rounded-full bg-muted" />
+                      ) : (
+                        <Meter used={m.used} limit={m.limit} className="mt-1.5" />
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
     </>
   );
 }

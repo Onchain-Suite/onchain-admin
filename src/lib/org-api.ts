@@ -268,3 +268,74 @@ function emptyAnalytics(): OrgAnalytics {
     automations: { active: 0, entries: 0, conversions: 0, revenue: 0 },
   };
 }
+
+/* ── Billing (GET /billing/plan-usage/{organizationId}) ──────────────────────
+ * Accepts the admin key + org in the path. limit -1 = unlimited. */
+export interface OrgMeter {
+  name: string;
+  used: number;
+  limit: number; // -1 = unlimited
+  percent: number;
+  status: string;
+}
+export interface OrgBilling {
+  plan: { key: string; label: string; monthlyPrice: number };
+  period: string;
+  meters: OrgMeter[];
+}
+
+interface PlanUsageResp {
+  plan?: { key?: string; label?: string; monthlyPrice?: number };
+  period?: string;
+  meters?: Record<
+    string,
+    { used?: number; limit?: number; percent?: number; status?: string }
+  >;
+}
+
+const METER_LABELS: Record<string, string> = {
+  contacts: "Contacts",
+  trackedWallets: "Tracked wallets",
+  emailsPerMonth: "Emails / month",
+  aiCredits: "AI credits",
+  goldrushCredits: "GoldRush credits",
+  seats: "Seats",
+  automations: "Automations",
+  apiKeys: "API keys",
+};
+
+export async function getOrgBilling(orgId: string): Promise<OrgRead<OrgBilling>> {
+  if (!orgId) return { data: emptyBilling(), isMock: false, needsOrg: true };
+  if (USE_MOCK) return { data: emptyBilling(), isMock: true };
+  try {
+    const r = await getOrg<PlanUsageResp>(`/billing/plan-usage/${orgId}`, orgId);
+    return {
+      data: {
+        plan: {
+          key: r.plan?.key ?? "—",
+          label: r.plan?.label ?? "—",
+          monthlyPrice: n(r.plan?.monthlyPrice),
+        },
+        period: r.period ?? "",
+        meters: Object.entries(r.meters ?? {}).map(([key, m]) => ({
+          name: METER_LABELS[key] ?? key,
+          used: n(m.used),
+          limit: typeof m.limit === "number" ? m.limit : -1,
+          percent: n(m.percent),
+          status: m.status ?? "ok",
+        })),
+      },
+      isMock: false,
+    };
+  } catch (e) {
+    return {
+      data: emptyBilling(),
+      isMock: true,
+      error: e instanceof Error ? e.message : "Failed to reach backend",
+    };
+  }
+}
+
+function emptyBilling(): OrgBilling {
+  return { plan: { key: "—", label: "—", monthlyPrice: 0 }, period: "", meters: [] };
+}
