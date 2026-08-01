@@ -117,3 +117,154 @@ function mockDomains(): OrgDomain[] {
     { domain: "example.xyz", dkim: false, spf: true, status: "pending" },
   ];
 }
+
+/* ── Analytics (org-scoped, composed from existing read routes) ──────────────
+ * GET /campaigns/analytics/overview, /audience/overview, /identity/stats,
+ * /automations/metrics — all accept the admin key + x-org-id. Rates from the
+ * API are already percentages (e.g. openRate 58.33), not 0..1. */
+export interface OrgAnalytics {
+  rangeDays: number;
+  email: {
+    sent: number;
+    delivered: number;
+    uniqueOpens: number;
+    openRate: number;
+    clickRate: number;
+    bounceRate: number;
+    unsubscribeRate: number;
+  };
+  inapp: { sent: number; viewed: number; viewRate: number; clickRate: number };
+  messagesSent: number;
+  audience: {
+    total: number;
+    withWallet: number;
+    avgHealth: number;
+    active: number;
+    cooling: number;
+    cold: number;
+  };
+  identity: {
+    registeredUsers: number;
+    members: number;
+    email: number;
+    telegram: number;
+    x: number;
+    discord: number;
+    farcaster: number;
+  };
+  automations: { active: number; entries: number; conversions: number; revenue: number };
+}
+
+interface CampaignsResp {
+  rangeDays?: number;
+  email?: Partial<OrgAnalytics["email"]> & Record<string, number>;
+  inapp?: Record<string, number>;
+  totals?: { messagesSent?: number };
+}
+interface AudienceResp {
+  total?: number;
+  withWallet?: number;
+  avgHealth?: number;
+  activeCount?: number;
+  coolingCount?: number;
+  coldCount?: number;
+}
+interface IdentityResp {
+  registeredUsers?: number;
+  groups?: Record<string, number>;
+}
+interface AutomationsResp {
+  active?: number;
+  entries?: number;
+  conversions?: number;
+  revenue?: number;
+}
+
+const n = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+
+async function getOrgOrNull<T>(path: string, orgId: string): Promise<T | null> {
+  try {
+    return await getOrg<T>(path, orgId);
+  } catch {
+    return null;
+  }
+}
+
+export async function getOrgAnalytics(orgId: string): Promise<OrgRead<OrgAnalytics>> {
+  if (!orgId) return { data: emptyAnalytics(), isMock: false, needsOrg: true };
+  if (USE_MOCK) return { data: emptyAnalytics(), isMock: true };
+
+  const [c, a, i, au] = await Promise.all([
+    getOrgOrNull<CampaignsResp>("/campaigns/analytics/overview", orgId),
+    getOrgOrNull<AudienceResp>("/audience/overview", orgId),
+    getOrgOrNull<IdentityResp>("/identity/stats", orgId),
+    getOrgOrNull<AutomationsResp>("/automations/metrics", orgId),
+  ]);
+
+  if (!c && !a && !i && !au) {
+    return {
+      data: emptyAnalytics(),
+      isMock: true,
+      error: "backend unreachable or key not authorized for these routes",
+    };
+  }
+
+  const groups = i?.groups ?? {};
+  return {
+    data: {
+      rangeDays: n(c?.rangeDays) || 30,
+      email: {
+        sent: n(c?.email?.sent),
+        delivered: n(c?.email?.delivered),
+        uniqueOpens: n(c?.email?.uniqueOpens),
+        openRate: n(c?.email?.openRate),
+        clickRate: n(c?.email?.clickRate),
+        bounceRate: n(c?.email?.bounceRate),
+        unsubscribeRate: n(c?.email?.unsubscribeRate),
+      },
+      inapp: {
+        sent: n(c?.inapp?.sent),
+        viewed: n(c?.inapp?.viewed),
+        viewRate: n(c?.inapp?.viewRate),
+        clickRate: n(c?.inapp?.clickRate),
+      },
+      messagesSent: n(c?.totals?.messagesSent),
+      audience: {
+        total: n(a?.total),
+        withWallet: n(a?.withWallet),
+        avgHealth: n(a?.avgHealth),
+        active: n(a?.activeCount),
+        cooling: n(a?.coolingCount),
+        cold: n(a?.coldCount),
+      },
+      identity: {
+        registeredUsers: n(i?.registeredUsers),
+        members: n(groups.members),
+        email: n(groups.verified_email),
+        telegram: n(groups.verified_telegram),
+        x: n(groups.verified_x),
+        discord: n(groups.verified_discord),
+        farcaster: n(groups.verified_farcaster),
+      },
+      automations: {
+        active: n(au?.active),
+        entries: n(au?.entries),
+        conversions: n(au?.conversions),
+        revenue: n(au?.revenue),
+      },
+    },
+    isMock: false,
+  };
+}
+
+function emptyAnalytics(): OrgAnalytics {
+  return {
+    rangeDays: 30,
+    email: { sent: 0, delivered: 0, uniqueOpens: 0, openRate: 0, clickRate: 0, bounceRate: 0, unsubscribeRate: 0 },
+    inapp: { sent: 0, viewed: 0, viewRate: 0, clickRate: 0 },
+    messagesSent: 0,
+    audience: { total: 0, withWallet: 0, avgHealth: 0, active: 0, cooling: 0, cold: 0 },
+    identity: { registeredUsers: 0, members: 0, email: 0, telegram: 0, x: 0, discord: 0, farcaster: 0 },
+    automations: { active: 0, entries: 0, conversions: 0, revenue: 0 },
+  };
+}
