@@ -15,6 +15,7 @@ import {
   toggleOrgAction,
 } from "@/app/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select } from "@/components/ui/select";
 import type { ActionResult } from "@/lib/admin-actions";
 
 const PLANS = ["PAYG", "Starter", "Growth", "Scale"];
@@ -73,10 +74,9 @@ export function OrgActions({
       </CardHeader>
       <CardContent className="pt-1">
         <Row label="Re-sync domain">
-          <select
+          <Select
             value={domain}
             onChange={(e) => setDomain(e.target.value)}
-            className={inputCls}
             aria-label="Domain to re-sync"
           >
             {domains.map((d) => (
@@ -84,7 +84,7 @@ export function OrgActions({
                 {d}
               </option>
             ))}
-          </select>
+          </Select>
           <button
             type="button"
             disabled={pending || !domain}
@@ -122,10 +122,9 @@ export function OrgActions({
         </Row>
 
         <Row label="Set plan / extend">
-          <select
+          <Select
             value={plan}
             onChange={(e) => setPlan(e.target.value)}
-            className={inputCls}
             aria-label="Plan"
           >
             {PLANS.map((p) => (
@@ -133,7 +132,7 @@ export function OrgActions({
                 {p}
               </option>
             ))}
-          </select>
+          </Select>
           <input
             type="number"
             value={extendDays}

@@ -4,6 +4,8 @@ import { BuildingOffice2Icon } from "@heroicons/react/24/outline";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
+import { Select } from "@/components/ui/select";
+
 export interface OrgOption {
   id: string;
   name: string;
@@ -51,11 +53,11 @@ export function OrgPicker({
       </span>
 
       {orgs.length > 0 ? (
-        <select
+        <Select
           value={current}
           onChange={(e) => setOrg(e.target.value)}
           aria-label="Organization"
-          className={`${inputCls} min-w-64`}
+          className="min-w-64"
         >
           <option value="">Select an organization…</option>
           {orgs.map((o) => (
@@ -63,7 +65,7 @@ export function OrgPicker({
               {o.name}
             </option>
           ))}
-        </select>
+        </Select>
       ) : (
         <>
           <input
