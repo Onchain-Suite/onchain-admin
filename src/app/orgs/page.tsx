@@ -44,7 +44,7 @@ export default async function OrgsPage() {
                 align: "right",
                 cell: (o) => (o.messages30d != null ? formatCompact(o.messages30d) : "—"),
               },
-              { header: "Created", align: "right", cell: (o) => <span className="text-muted-foreground">{o.createdAt}</span> },
+              { header: "Created", align: "right", cell: (o) => <span className="text-muted-foreground">{o.createdAt.slice(0, 10)}</span> },
             ]}
           />
         </CardContent>
