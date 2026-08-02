@@ -4,7 +4,6 @@ import {
   ClipboardDocumentListIcon,
   CreditCardIcon,
   EnvelopeIcon,
-  GlobeAltIcon,
   ServerStackIcon,
   Squares2X2Icon,
   UsersIcon,
@@ -26,7 +25,6 @@ export const NAV: NavItem[] = [
   { href: "/users", label: "Users", icon: UsersIcon },
   { href: "/billing", label: "Billing", icon: CreditCardIcon },
   { href: "/deliverability", label: "Deliverability", icon: EnvelopeIcon },
-  { href: "/visitors", label: "Visitors", icon: GlobeAltIcon },
   { href: "/audit", label: "Audit log", icon: ClipboardDocumentListIcon },
 ];
 
