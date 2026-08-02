@@ -1,11 +1,11 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Meter } from "@/components/ui/meter";
 import { MockBanner } from "@/components/mock-banner";
-import { OrgField } from "@/components/org-field";
+import { OrgPicker } from "@/components/org-picker";
 import { PageHeading, SectionHeading } from "@/components/section-heading";
 import { type SearchParams } from "@/lib/filters";
 import { getOrgBilling } from "@/lib/org-api";
-import { getOrgId } from "@/lib/org-context";
+import { getOrgId, getOrgOptions } from "@/lib/org-context";
 import { formatCompact, formatMoney } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,10 @@ export default async function BillingPage({
   searchParams: Promise<SearchParams>;
 }) {
   const org = await getOrgId(await searchParams);
-  const { data, isMock, needsOrg, error } = await getOrgBilling(org);
+  const [{ data, isMock, needsOrg, error }, orgs] = await Promise.all([
+    getOrgBilling(org),
+    getOrgOptions(),
+  ]);
 
   return (
     <>
@@ -24,7 +27,7 @@ export default async function BillingPage({
         title="Billing"
         description="Plan and live usage meters for an organization, from GET /billing/plan-usage. Read-only."
       />
-      <OrgField current={org} />
+      <OrgPicker current={org} orgs={orgs} />
 
       {needsOrg ? (
         <Card>

@@ -2,11 +2,11 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { MockBanner } from "@/components/mock-banner";
-import { OrgField } from "@/components/org-field";
+import { OrgPicker } from "@/components/org-picker";
 import { PageHeading } from "@/components/section-heading";
 import { type SearchParams } from "@/lib/filters";
 import { getOrgDomains, type OrgDomain } from "@/lib/org-api";
-import { getOrgId } from "@/lib/org-context";
+import { getOrgId, getOrgOptions } from "@/lib/org-context";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +16,10 @@ export default async function DeliverabilityPage({
   searchParams: Promise<SearchParams>;
 }) {
   const org = await getOrgId(await searchParams);
-  const { data, isMock, needsOrg, error } = await getOrgDomains(org);
+  const [{ data, isMock, needsOrg, error }, orgs] = await Promise.all([
+    getOrgDomains(org),
+    getOrgOptions(),
+  ]);
 
   return (
     <>
@@ -24,7 +27,7 @@ export default async function DeliverabilityPage({
         title="Deliverability"
         description="Per-domain authentication (DKIM / SPF / verification) for an organization, from GET /sender-identities/domains/authentication. Read-only."
       />
-      <OrgField current={org} />
+      <OrgPicker current={org} orgs={orgs} />
 
       {needsOrg ? (
         <Card>

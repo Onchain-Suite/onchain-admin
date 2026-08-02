@@ -1,7 +1,8 @@
 // SERVER ONLY. Holds ADMIN_API_TOKEN — never import into a client component.
-// Org-scoped reads against EXISTING backend routes: authenticated with the
-// read-only admin token (Bearer) and the selected org (`x-org-id`). No new
-// backend endpoints — these are the routes already in the inventory.
+// Backend reads authenticated with the read-only admin token (Bearer). Org-
+// scoped routes also send the selected org as `x-org-id`; platform routes
+// (/admin/*) don't. Everything falls back to sample data if a route 404s.
+import type { AuditEntry, UserRow } from "@/lib/types";
 
 const BASE = (process.env.BACKEND_URL ?? "").replace(/\/$/, "");
 const TOKEN = process.env.ADMIN_API_TOKEN ?? "";
@@ -38,6 +39,34 @@ async function getOrg<T>(path: string, orgId: string, timeoutMs = 8000): Promise
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** Platform-scoped GET (no x-org-id) for the /admin/* aggregate routes. */
+async function getPlatform<T>(path: string, timeoutMs = 8000): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${BASE}${path}`, {
+      method: "GET",
+      headers: { authorization: `Bearer ${TOKEN}`, accept: "application/json" },
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error(`GET ${path} → HTTP ${res.status}`);
+    const body = (await res.json()) as { data?: T } | T;
+    return body && typeof body === "object" && "data" in body
+      ? (body as { data: T }).data
+      : (body as T);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Unwrap either `{ items, total }` or a bare array into `T[]`. */
+function toItems<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) return payload as T[];
+  if (isObj(payload) && Array.isArray(payload.items)) return payload.items as T[];
+  return [];
 }
 
 /* ── Domains (GET /sender-identities/domains/authentication) ─────────────────
@@ -338,4 +367,82 @@ export async function getOrgBilling(orgId: string): Promise<OrgRead<OrgBilling>>
 
 function emptyBilling(): OrgBilling {
   return { plan: { key: "—", label: "—", monthlyPrice: 0 }, period: "", meters: [] };
+}
+
+/* ── Platform lists (GET /admin/organizations|users|audit) ───────────────────
+ * New backend routes (see docs/endpoints-to-build.md). Until they exist they
+ * 404 and we fall back to sample data. Accept `{ items, total }` or a bare
+ * array. */
+export interface OrgListItem {
+  id: string;
+  name: string;
+  plan: string;
+  members: number;
+  contacts?: number;
+  messages30d?: number;
+  createdAt: string;
+  lastActivity?: string;
+}
+
+export async function getOrganizations(): Promise<OrgRead<OrgListItem[]>> {
+  if (USE_MOCK) return { data: sampleOrgs(), isMock: true };
+  try {
+    const items = toItems<OrgListItem>(await getPlatform("/admin/organizations"));
+    return { data: items, isMock: false };
+  } catch (e) {
+    return {
+      data: sampleOrgs(),
+      isMock: true,
+      error: e instanceof Error ? e.message : "endpoint not available",
+    };
+  }
+}
+
+export async function getUsers(): Promise<OrgRead<UserRow[]>> {
+  if (USE_MOCK) return { data: sampleUsers(), isMock: true };
+  try {
+    return { data: toItems<UserRow>(await getPlatform("/admin/users")), isMock: false };
+  } catch (e) {
+    return {
+      data: sampleUsers(),
+      isMock: true,
+      error: e instanceof Error ? e.message : "endpoint not available",
+    };
+  }
+}
+
+export async function getAudit(): Promise<OrgRead<AuditEntry[]>> {
+  if (USE_MOCK) return { data: sampleAudit(), isMock: true };
+  try {
+    return { data: toItems<AuditEntry>(await getPlatform("/admin/audit")), isMock: false };
+  } catch (e) {
+    return {
+      data: sampleAudit(),
+      isMock: true,
+      error: e instanceof Error ? e.message : "endpoint not available",
+    };
+  }
+}
+
+function sampleOrgs(): OrgListItem[] {
+  return [
+    { id: "org_1", name: "Aster Labs", plan: "Growth", members: 8, contacts: 42_100, messages30d: 128_400, createdAt: "2026-03-02", lastActivity: "2026-07-31" },
+    { id: "org_2", name: "Nimbus Protocol", plan: "Scale", members: 14, contacts: 210_500, messages30d: 302_100, createdAt: "2026-01-19", lastActivity: "2026-07-31" },
+    { id: "org_3", name: "Meridian", plan: "Starter", members: 3, contacts: 3_200, messages30d: 9_800, createdAt: "2026-06-24", lastActivity: "2026-07-29" },
+  ];
+}
+
+function sampleUsers(): UserRow[] {
+  return [
+    { id: "u_1", email: "ada@asterlabs.xyz", orgs: 1, roles: "OWNER", verified: true, createdAt: "2026-03-02", lastSession: "2026-07-31T09:20:00Z" },
+    { id: "u_2", email: "reza@nimbus.xyz", orgs: 2, roles: "ADMIN, MEMBER", verified: true, createdAt: "2026-01-20", lastSession: "2026-07-31T07:02:00Z" },
+    { id: "u_3", email: "noreply@harbor.xyz", orgs: 0, roles: "—", verified: false, createdAt: "2026-07-10" },
+  ];
+}
+
+function sampleAudit(): AuditEntry[] {
+  return [
+    { id: "a1", at: "2026-07-31T09:50:00Z", actor: "jorshimayor", action: "domain.resync", target: "Onchain Suite · onchain-suite.xyz", detail: "Re-ran verification" },
+    { id: "a2", at: "2026-07-30T15:10:00Z", actor: "Olusegun-Aborode", action: "wallet.credit", target: "Aster Labs · +$50", detail: "admin_grant" },
+  ];
 }

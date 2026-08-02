@@ -1,11 +1,11 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { MockBanner } from "@/components/mock-banner";
-import { OrgField } from "@/components/org-field";
+import { OrgPicker } from "@/components/org-picker";
 import { PageHeading, SectionHeading } from "@/components/section-heading";
 import { StatCard } from "@/components/stat-card";
 import { type SearchParams } from "@/lib/filters";
 import { getOrgAnalytics } from "@/lib/org-api";
-import { getOrgId } from "@/lib/org-context";
+import { getOrgId, getOrgOptions } from "@/lib/org-context";
 import { formatCompact } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +19,10 @@ export default async function AnalyticsPage({
   searchParams: Promise<SearchParams>;
 }) {
   const org = await getOrgId(await searchParams);
-  const { data, isMock, needsOrg, error } = await getOrgAnalytics(org);
+  const [{ data, isMock, needsOrg, error }, orgs] = await Promise.all([
+    getOrgAnalytics(org),
+    getOrgOptions(),
+  ]);
 
   return (
     <>
@@ -27,7 +30,7 @@ export default async function AnalyticsPage({
         title="Analytics"
         description={`Messaging, audience, identity, and automations for an organization — live from existing read routes (last ${data.rangeDays} days). Read-only.`}
       />
-      <OrgField current={org} />
+      <OrgPicker current={org} orgs={orgs} />
 
       {needsOrg ? (
         <Card>

@@ -2,13 +2,13 @@ import { CheckCircleIcon, ExclamationTriangleIcon } from "@heroicons/react/24/ou
 import Link from "next/link";
 
 import { MockBanner } from "@/components/mock-banner";
-import { OrgField } from "@/components/org-field";
+import { OrgPicker } from "@/components/org-picker";
 import { PageHeading, SectionHeading } from "@/components/section-heading";
 import { StatCard } from "@/components/stat-card";
 import { Card, CardContent } from "@/components/ui/card";
 import { type SearchParams } from "@/lib/filters";
 import { getOrgAnalytics, getOrgBilling } from "@/lib/org-api";
-import { getOrgId } from "@/lib/org-context";
+import { getOrgId, getOrgOptions } from "@/lib/org-context";
 import { getSystemStatus } from "@/lib/system";
 import { formatCompact, formatPercent } from "@/lib/utils";
 
@@ -20,7 +20,10 @@ export default async function OverviewPage({
   searchParams: Promise<SearchParams>;
 }) {
   const org = await getOrgId(await searchParams);
-  const { data: sys, isMock: sysMock, error: sysErr } = await getSystemStatus();
+  const [{ data: sys, isMock: sysMock, error: sysErr }, orgs] = await Promise.all([
+    getSystemStatus(),
+    getOrgOptions(),
+  ]);
   const [analytics, billing] = org
     ? await Promise.all([getOrgAnalytics(org), getOrgBilling(org)])
     : [null, null];
@@ -78,7 +81,7 @@ export default async function OverviewPage({
       </div>
 
       <SectionHeading>Organization snapshot</SectionHeading>
-      <OrgField current={org} />
+      <OrgPicker current={org} orgs={orgs} />
       {!org ? (
         <Card>
           <CardContent className="p-8 text-center text-sm text-muted-foreground">

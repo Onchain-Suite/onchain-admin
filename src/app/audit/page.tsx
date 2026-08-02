@@ -2,14 +2,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { MockBanner } from "@/components/mock-banner";
 import { PageHeading } from "@/components/section-heading";
-import { adminApi } from "@/lib/admin-api";
+import { getAudit } from "@/lib/org-api";
 import type { AuditEntry } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function AuditPage() {
-  const { data, isMock, error } = await adminApi.audit();
+  const { data, isMock, error } = await getAudit();
 
   return (
     <>
