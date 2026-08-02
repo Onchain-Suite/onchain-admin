@@ -1,99 +1,117 @@
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChartLegend, ChartPanel } from "@/components/chart-panel";
-import { FilterBar } from "@/components/filter-bar";
+import { CheckCircleIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+import Link from "next/link";
+
 import { MockBanner } from "@/components/mock-banner";
-import { NorthStarTile } from "@/components/north-star-tile";
+import { OrgField } from "@/components/org-field";
 import { PageHeading, SectionHeading } from "@/components/section-heading";
-import { HealthPill } from "@/components/ui/health-pill";
-import { adminApi } from "@/lib/admin-api";
-import { parseFilters, RANGE_SPEC, rangeLabel, type SearchParams } from "@/lib/filters";
-import { timeAgo } from "@/lib/utils";
+import { StatCard } from "@/components/stat-card";
+import { Card, CardContent } from "@/components/ui/card";
+import { type SearchParams } from "@/lib/filters";
+import { getOrgAnalytics, getOrgBilling } from "@/lib/org-api";
+import { getOrgId } from "@/lib/org-context";
+import { getSystemStatus } from "@/lib/system";
+import { formatCompact, formatPercent } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
-
-const SEND_SERIES = [
-  { key: "email", label: "Email", color: "var(--chart-1)" },
-  { key: "push", label: "In-app", color: "var(--chart-2)" },
-];
 
 export default async function OverviewPage({
   searchParams,
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const f = parseFilters(await searchParams);
-  const { data, isMock, error } = await adminApi.snapshot(f);
+  const org = await getOrgId(await searchParams);
+  const { data: sys, isMock: sysMock, error: sysErr } = await getSystemStatus();
+  const [analytics, billing] = org
+    ? await Promise.all([getOrgAnalytics(org), getOrgBilling(org)])
+    : [null, null];
 
   return (
     <>
       <PageHeading
         title="Overview"
-        description="Are we growing, are customers healthy, is the system healthy — at a glance."
+        description="Platform health at a glance, plus a snapshot for a selected organization — all live from existing endpoints."
+        action={
+          sysMock ? null : (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
+              Live
+            </span>
+          )
+        }
       />
-      <FilterBar specs={[RANGE_SPEC]} />
-      {isMock ? <MockBanner endpoint="GET /admin/snapshot" error={error} /> : null}
+      {sysMock ? (
+        <MockBanner endpoint="GET /health, /observability/failure-rate" error={sysErr} />
+      ) : null}
 
-      <SectionHeading>North-star metrics</SectionHeading>
-      <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {data.northStars.map((tile) => (
-          <NorthStarTile key={tile.key} tile={tile} />
-        ))}
-      </div>
-
-      <SectionHeading>Service health</SectionHeading>
+      <SectionHeading>System health</SectionHeading>
       <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {data.health.map((svc) => (
-          <Card key={svc.name} className="flex items-center justify-between p-4">
-            <div>
-              <div className="text-sm font-medium text-foreground">{svc.name}</div>
-              {svc.detail ? (
-                <div className="text-xs text-muted-foreground">{svc.detail}</div>
-              ) : null}
+        <Card className="flex items-center justify-between p-5">
+          <div>
+            <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+              Overall
             </div>
-            <HealthPill status={svc.status} />
-          </Card>
-        ))}
+            <div className="mt-2 text-lg font-semibold capitalize text-foreground">
+              {sys.overall}
+            </div>
+          </div>
+          {sys.overall === "operational" ? (
+            <CheckCircleIcon className="h-8 w-8 text-emerald-500" aria-hidden="true" />
+          ) : (
+            <ExclamationTriangleIcon className="h-8 w-8 text-amber-500" aria-hidden="true" />
+          )}
+        </Card>
+        <StatCard
+          label="HTTP error rate"
+          value={sys.failure ? formatPercent(sys.failure.httpErrorRate) : "—"}
+          tone={sys.failure && sys.failure.httpErrorRate >= 0.01 ? "danger" : "default"}
+        />
+        <StatCard
+          label="Queue failures"
+          value={sys.failure ? String(sys.failure.queueFailed) : "—"}
+          tone={sys.failure && sys.failure.queueFailed > 0 ? "danger" : "default"}
+        />
+        <StatCard
+          label="Routes healthy"
+          value={sys.routes ? `${sys.routes.observed - sys.routes.failing}/${sys.routes.observed}` : "—"}
+          tone={sys.routes && sys.routes.failing > 0 ? "danger" : "default"}
+        />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex items-center justify-between gap-2">
-            <CardTitle>Send volume · {rangeLabel(f.range)}</CardTitle>
-            <ChartLegend series={SEND_SERIES} />
-          </CardHeader>
-          <CardContent>
-            <ChartPanel data={data.sends} xKey="date" series={SEND_SERIES} />
-          </CardContent>
-        </Card>
-
+      <SectionHeading>Organization snapshot</SectionHeading>
+      <OrgField current={org} />
+      {!org ? (
         <Card>
-          <CardHeader>
-            <CardTitle>Recent errors</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2.5">
-            {data.errors.slice(0, 5).map((err) => (
-              <div
-                key={err.id}
-                className="rounded-lg border border-border/50 bg-background/50 p-3"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {err.source}
-                  </span>
-                  <Badge tone={err.level === "error" ? "danger" : "warning"}>
-                    {err.level}
-                  </Badge>
-                </div>
-                <p className="mt-1 text-sm text-foreground">{err.message}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {timeAgo(err.at)}
-                </p>
-              </div>
-            ))}
+          <CardContent className="p-8 text-center text-sm text-muted-foreground">
+            Enter an organization id to see its plan, messaging, and audience —
+            or open{" "}
+            <Link href="/analytics" className="text-primary hover:underline">
+              Analytics
+            </Link>{" "}
+            /{" "}
+            <Link href="/billing" className="text-primary hover:underline">
+              Billing
+            </Link>{" "}
+            for the full view.
           </CardContent>
         </Card>
-      </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard label="Plan" value={billing?.data.plan.label ?? "—"} />
+          <StatCard
+            label="Messages (30d)"
+            value={formatCompact(analytics?.data.messagesSent ?? 0)}
+          />
+          <StatCard
+            label="Contacts"
+            value={formatCompact(analytics?.data.audience.total ?? 0)}
+            hint={`${formatCompact(analytics?.data.audience.withWallet ?? 0)} with wallet`}
+          />
+          <StatCard
+            label="Email open rate"
+            value={`${(analytics?.data.email.openRate ?? 0).toFixed(1)}%`}
+          />
+        </div>
+      )}
     </>
   );
 }
