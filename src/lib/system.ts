@@ -105,6 +105,12 @@ interface FailureResp {
   queues?: { failureRate?: number; totalFailed?: number };
 }
 
+/** One-request overall health for the Overview tile (avoids the full 6-call board). */
+export async function getOverallHealth(): Promise<HealthStatus> {
+  const health = await get<HealthResp>("/health");
+  return health ? mapStatus(health.status) : "operational";
+}
+
 export async function getSystemStatus(): Promise<SystemRead> {
   const [health, queues, circuits, worker, apis, failure] = await Promise.all([
     get<HealthResp>("/health"),

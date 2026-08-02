@@ -1,14 +1,18 @@
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DataTable } from "@/components/ui/data-table";
 import { Meter } from "@/components/ui/meter";
 import { MockBanner } from "@/components/mock-banner";
 import { OrgPicker } from "@/components/org-picker";
 import { PageHeading, SectionHeading } from "@/components/section-heading";
+import { StatCard } from "@/components/stat-card";
 import { type SearchParams } from "@/lib/filters";
-import { getOrgBilling } from "@/lib/org-api";
+import { type BillingSummary, getBillingSummary, getOrgBilling } from "@/lib/org-api";
 import { getOrgId, getOrgOptions } from "@/lib/org-context";
 import { formatCompact, formatMoney } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
+
+type Spender = BillingSummary["topSpenders"][number];
 
 export default async function BillingPage({
   searchParams,
@@ -16,17 +20,48 @@ export default async function BillingPage({
   searchParams: Promise<SearchParams>;
 }) {
   const org = await getOrgId(await searchParams);
-  const [{ data, isMock, needsOrg, error }, orgs] = await Promise.all([
+  const [{ data, isMock, needsOrg, error }, orgs, summary] = await Promise.all([
     getOrgBilling(org),
     getOrgOptions(),
+    getBillingSummary(),
   ]);
+  const s = summary.data;
 
   return (
     <>
       <PageHeading
         title="Billing"
-        description="Plan and live usage meters for an organization, from GET /billing/plan-usage. Read-only."
+        description="Platform revenue snapshot, plus plan and live usage meters per organization."
       />
+
+      <SectionHeading>Platform · money</SectionHeading>
+      {summary.isMock ? <MockBanner endpoint="GET /admin/billing/summary" error={summary.error} /> : null}
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="MRR (est.)" value={formatMoney(s.mrrUsd)} hint="catalog list price × active paid" />
+        <StatCard label="PAYG wallets" value={formatMoney(s.paygWalletTotalUsd)} hint="Σ balances" />
+        <StatCard label="Organizations" value={formatCompact(s.totalOrgs)} />
+        <StatCard label="Paid plans" value={formatCompact(s.planDistribution.filter((p) => !["free", "payg"].includes(p.plan.toLowerCase())).reduce((n, p) => n + p.count, 0))} />
+      </div>
+      {s.topSpenders.length > 0 ? (
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Top spenders</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <DataTable<Spender>
+              rows={s.topSpenders}
+              rowKey={(r) => r.organizationId}
+              columns={[
+                { header: "Organization", cell: (r) => <span className="font-medium text-foreground">{r.name ?? "(unknown)"}</span> },
+                { header: "Balance", align: "right", cell: (r) => formatMoney(r.balanceUsd) },
+                { header: "Lifetime spend", align: "right", cell: (r) => formatMoney(r.lifetimeSpendUsd) },
+              ]}
+            />
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <SectionHeading>Organization · plan &amp; usage</SectionHeading>
       <OrgPicker current={org} orgs={orgs} />
 
       {needsOrg ? (

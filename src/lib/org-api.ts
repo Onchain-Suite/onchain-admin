@@ -41,25 +41,37 @@ async function getOrg<T>(path: string, orgId: string, timeoutMs = 8000): Promise
   }
 }
 
-/** Platform-scoped GET (no x-org-id) for the /admin/* aggregate routes. */
+/**
+ * Platform-scoped GET (no x-org-id) for the /admin/* aggregate routes. Retries
+ * once on failure — Overview fans out many requests at once and can trip a
+ * transient rate limit; a short backoff self-heals it instead of falling back
+ * to sample data.
+ */
 async function getPlatform<T>(path: string, timeoutMs = 8000): Promise<T> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(`${BASE}${path}`, {
-      method: "GET",
-      headers: { authorization: `Bearer ${TOKEN}`, accept: "application/json" },
-      signal: controller.signal,
-      cache: "no-store",
-    });
-    if (!res.ok) throw new Error(`GET ${path} → HTTP ${res.status}`);
-    const body = (await res.json()) as { data?: T } | T;
-    return body && typeof body === "object" && "data" in body
-      ? (body as { data: T }).data
-      : (body as T);
-  } finally {
-    clearTimeout(timer);
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(`${BASE}${path}`, {
+        method: "GET",
+        headers: { authorization: `Bearer ${TOKEN}`, accept: "application/json" },
+        signal: controller.signal,
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error(`GET ${path} → HTTP ${res.status}`);
+      const body = (await res.json()) as { data?: T } | T;
+      return body && typeof body === "object" && "data" in body
+        ? (body as { data: T }).data
+        : (body as T);
+    } catch (e) {
+      lastErr = e;
+      if (attempt === 0) await new Promise((r) => setTimeout(r, 350));
+    } finally {
+      clearTimeout(timer);
+    }
   }
+  throw lastErr;
 }
 
 /** Unwrap either `{ items, total }` or a bare array into `T[]`. */
@@ -450,4 +462,80 @@ function sampleAudit(): AuditEntry[] {
     { id: "a1", at: "2026-07-31T09:50:00Z", actor: "jorshimayor", action: "domain.resync", target: "Onchain Suite · onchain-suite.xyz", detail: "Re-ran verification" },
     { id: "a2", at: "2026-07-30T15:10:00Z", actor: "Olusegun-Aborode", action: "wallet.credit", target: "Aster Labs · +$50", detail: "admin_grant" },
   ];
+}
+
+/* ── Platform aggregates (new /admin/* routes) ───────────────────────────────
+ * All platform-scoped (no x-org-id), fail-soft to sample data on error. */
+export interface BillingSummary {
+  totalOrgs: number;
+  planDistribution: { plan: string; count: number }[];
+  mrrUsd: number;
+  paygWalletTotalUsd: number;
+  topSpenders: { organizationId: string; name: string | null; balanceUsd: number; lifetimeSpendUsd: number }[];
+}
+export interface EmailSummary {
+  totals: { sent: number; delivered: number; bounced: number; complained: number; failed: number };
+  rates: { deliveryRate: number; bounceRate: number; complaintRate: number };
+  topFailingOrgs: { organizationId?: string; name?: string; bounceRate?: number; complaintRate?: number; sent?: number }[];
+  topFailingDomains: { domain?: string; bounceRate?: number; sent?: number }[];
+  failureReasons: { reason?: string; count?: number }[];
+}
+export interface UserMetrics {
+  totalUsers: number;
+  newSignups: { value: number; deltaPct: number; series: { date: string; value: number }[] };
+  dailyLogins: { value: number; series: { date: string; value: number }[] };
+  activeUsers: { value: number };
+  retention: { cohortDays: number; returned: number; total: number; rate: number };
+}
+export interface Offender {
+  organizationId?: string;
+  name?: string;
+  bounceRate?: number;
+  complaintRate?: number;
+  sent?: number;
+  domains?: { domain?: string; provider?: string; bounceRate?: number }[];
+  providers?: { provider?: string; bounceRate?: number }[];
+}
+
+async function platformRead<T>(path: string, fallback: () => T): Promise<OrgRead<T>> {
+  if (USE_MOCK) return { data: fallback(), isMock: true };
+  try {
+    return { data: await getPlatform<T>(path), isMock: false };
+  } catch (e) {
+    return { data: fallback(), isMock: true, error: e instanceof Error ? e.message : "endpoint not available" };
+  }
+}
+
+export const getBillingSummary = () =>
+  platformRead<BillingSummary>("/admin/billing/summary", () => ({
+    totalOrgs: 0, planDistribution: [], mrrUsd: 0, paygWalletTotalUsd: 0, topSpenders: [],
+  }));
+
+export const getEmailSummary = (window = 30) =>
+  platformRead<EmailSummary>(`/admin/email/summary?window=${window}`, () => ({
+    totals: { sent: 0, delivered: 0, bounced: 0, complained: 0, failed: 0 },
+    rates: { deliveryRate: 0, bounceRate: 0, complaintRate: 0 },
+    topFailingOrgs: [], topFailingDomains: [], failureReasons: [],
+  }));
+
+export const getUserMetrics = (window = 30) =>
+  platformRead<UserMetrics>(`/admin/users/metrics?window=${window}`, () => ({
+    totalUsers: 0,
+    newSignups: { value: 0, deltaPct: 0, series: [] },
+    dailyLogins: { value: 0, series: [] },
+    activeUsers: { value: 0 },
+    retention: { cohortDays: 30, returned: 0, total: 0, rate: 0 },
+  }));
+
+export async function getOffenders(window = 30): Promise<OrgRead<Offender[]>> {
+  if (USE_MOCK) return { data: [], isMock: true };
+  try {
+    // Response is { window, minSample, items[] } — unwrap items.
+    const items = toItems<Offender>(
+      await getPlatform(`/admin/deliverability/offenders?window=${window}&limit=20`)
+    );
+    return { data: items, isMock: false };
+  } catch (e) {
+    return { data: [], isMock: true, error: e instanceof Error ? e.message : "endpoint not available" };
+  }
 }
