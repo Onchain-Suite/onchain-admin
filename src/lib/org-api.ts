@@ -380,14 +380,19 @@ export interface OrgListItem {
   members: number;
   contacts?: number;
   messages30d?: number;
+  walletBalance?: number;
+  bounceRate?: number; // 0..1
+  complaintRate?: number; // 0..1
+  reputationStatus?: string; // "ok" | "warning" | "critical" | …
   createdAt: string;
-  lastActivity?: string;
+  lastActivity?: string | null;
 }
 
 export async function getOrganizations(): Promise<OrgRead<OrgListItem[]>> {
   if (USE_MOCK) return { data: sampleOrgs(), isMock: true };
   try {
-    const items = toItems<OrgListItem>(await getPlatform("/admin/organizations"));
+    // Pull the whole fleet (24 today) for the aggregate + at-risk views.
+    const items = toItems<OrgListItem>(await getPlatform("/admin/organizations?limit=500"));
     return { data: items, isMock: false };
   } catch (e) {
     return {
@@ -401,7 +406,7 @@ export async function getOrganizations(): Promise<OrgRead<OrgListItem[]>> {
 export async function getUsers(): Promise<OrgRead<UserRow[]>> {
   if (USE_MOCK) return { data: sampleUsers(), isMock: true };
   try {
-    return { data: toItems<UserRow>(await getPlatform("/admin/users")), isMock: false };
+    return { data: toItems<UserRow>(await getPlatform("/admin/users?limit=500")), isMock: false };
   } catch (e) {
     return {
       data: sampleUsers(),
